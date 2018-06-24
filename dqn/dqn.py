@@ -115,7 +115,7 @@ class DQN(Agent):
 
         return max_q
 
-    
+
     def draw_action(self, state):
         self._buffer.add(state)
 

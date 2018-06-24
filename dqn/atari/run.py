@@ -154,6 +154,7 @@ def experiment():
 
         # Policy
         epsilon_test = Parameter(value=args.test_exploration_rate)
+
         pi = VPIPolicy(args.n_approximators, epsilon=epsilon_test)
 
         # Approximator
@@ -244,9 +245,9 @@ def experiment():
         epsilon_random = Parameter(value=1.)
 
         if not args.weighted:
-            pi = VPIPolicy(args.n_approximators, epsilon=epsilon_random)
+            pi = VPIPolicy(args.n_approximators)
         else:
-            pi = WeightedPolicy(args.n_approximators, epsilon=epsilon_random)
+            pi = WeightedPolicy(args.n_approximators)
 
         # Approximator
         input_shape = (args.screen_height, args.screen_width,
