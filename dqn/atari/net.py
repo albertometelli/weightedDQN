@@ -7,9 +7,10 @@ class ConvNet:
                  **convnet_pars):
         self._name = name
         self._folder_name = folder_name
-        #don't fill whole memory
+
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
+
         self._session = tf.Session(config=config)
         if load_path is not None:
             self._load(load_path, convnet_pars)
@@ -143,9 +144,12 @@ class ConvNet:
             self._features = list()
             self._q = list()
             self._q_acted = list()
-            self.n_approximators=convnet_pars['n_approximators']
-            self.q_min=convnet_pars['q_min']
-            self.q_max=convnet_pars['q_max']
+            self.n_approximators = convnet_pars['n_approximators']
+            self.q_min = convnet_pars['q_min']
+            self.q_max = convnet_pars['q_max']
+
+            initial_values = np.linspace(self.q_min, self.q_max, self.n_approximators)
+
             for i in range(self.n_approximators):
                 
                 with tf.variable_scope('head_' + str(i)):
@@ -158,9 +162,7 @@ class ConvNet:
                         self._features[i],
                         convnet_pars['output_shape'][0],
                         kernel_initializer=tf.zeros_initializer(),
-                        bias_initializer=tf.constant_initializer(
-                                                           [self.q_min+(i*(self.q_max-self.q_min))/(self.n_approximators-1)]*convnet_pars['output_shape'][0], 
-                                                            ),
+                        bias_initializer=tf.constant_initializer(np.repeat(initial_values[i], convnet_pars['output_shape'][0]),),
                         name='q_' + str(i)
                     ))
                     self._q_acted.append(
@@ -169,21 +171,29 @@ class ConvNet:
                                       name='q_acted_' + str(i))
                     )
 
+            self._q_acted = tf.transpose(self._q_acted)
+
             self._target_q = tf.placeholder(
                 'float32',
                 [None, convnet_pars['n_approximators']],
                 name='target_q'
             )
+
+            self._q_acted_sorted = tf.contrib.framework.sort(self._q_acted, axis=1)
+            self._target_q_sorted = tf.contrib.framework.sort(self._target_q, axis=1)
+
             loss = 0.
-            if convnet_pars["loss"]=="huber_loss":
-                self.loss_fuction=tf.losses.huber_loss
-            else :
-                self.loss_fuction=tf.losses.mean_squared_error
+            if convnet_pars["loss"] == "huber_loss":
+                self.loss_fuction = tf.losses.huber_loss
+            else:
+                self.loss_fuction = tf.losses.mean_squared_error
+
             for i in range(convnet_pars['n_approximators']):
                 loss += self.loss_fuction(
-                    self._mask[:, i] * self._target_q[:, i],
-                    self._mask[:, i] * self._q_acted[i]
-            )
+                    self._target_q_sorted[:, i],
+                    self._q_acted_sorted[:, i]
+                )
+
             tf.summary.scalar(convnet_pars["loss"], loss)
             tf.summary.scalar('average_q', tf.reduce_mean(self._q))
             self._merged = tf.summary.merge(

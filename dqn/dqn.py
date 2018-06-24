@@ -58,22 +58,10 @@ class DQN(Agent):
             state, action, reward, next_state, absorbing, _, mask =\
                 self._replay_memory.get(self._batch_size)
 
-            q = np.array(self.approximator.predict(state))[0]
-            q = q.reshape((self._n_approximators * self._batch_size, -1))
-            q = q[np.arange(self._n_approximators * self._batch_size),
-                  np.tile(action.ravel(), self._n_approximators)]
-            q = q.reshape((self._n_approximators, self._batch_size)).T
-            
-            idxs = q.argsort()
-
             if self._clip_reward:
                 reward = np.clip(reward, -1, 1)
 
             q_next = self._next_q(next_state, absorbing)
-            q_next_ordered = np.sort(q_next)
-            #order target values to match the source values
-            for i in range(idxs.shape[0]):
-                q_next[i, idxs[i]] = q_next_ordered[i]
 
             q = reward.reshape(self._batch_size,
                                1) + self.mdp_info.gamma * q_next
@@ -109,47 +97,25 @@ class DQN(Agent):
         for i in range(q.shape[1]):
             if absorbing[i]:
                 q[:, i, :] *= 1. - absorbing[i]
-        
+
+        max_q = np.zeros((q.shape[1], q.shape[0]))
+
         if not self.weighted_update:
-            #find best actions
-            best_actions=np.argmax(np.mean(q,axis=0),axis=1)
-            max_q = np.zeros((q.shape[1], q.shape[0]))
+            best_actions = np.argmax(np.mean(q, axis=0), axis=1)
             for i in range(q.shape[1]):
                 max_q[i, :]=q[:, i, best_actions[i]]
-            return max_q
         else:
-            N=q.shape[0]
-            num_actions=q.shape[2]
-            batch_size=q.shape[1]
-            probs=np.zeros((batch_size, num_actions))
-            weights = 1/N
-            #calculate probability of being maximum
-            for b in range(batch_size):
-                for i in range(num_actions):
-                    particles=q[:, b,i]
-                    p=0
-                    for k in range(N):
-                        p2=1
-                        p_k=particles[k]
-                        for j in range(num_actions):
-                            if(j!=i):
-                                particles2=q[:,b,j]
-                                p3=0
-                                for l in range(N):
-                                    if particles2[l]<=p_k:
-                                        p3+=weights
-                                p2*=p3
-                        p+=weights*p2
-                    probs[b, i]=p
-            max_q = np.zeros((batch_size , N))
-            for i in range(batch_size):
-                particles=np.zeros(N)
-                for j in range(num_actions):
-                    particles+=q[:, i, j]*probs[i, j]
-                max_q[i, :]=particles
-            return max_q
-            
+            for i in range(q.shape[1]):
+                samples = np.ones(q.shape[2])
+                for a in range(q.shape[2]):
+                    idx = np.random.randint(q.shape[2])
+                    samples[a] = q[idx, i, a]
+                max_a = np.asscalar(np.random.choice(np.argwhere(samples == np.max(samples)).ravel()))
+                max_q[i, :] = q[:, i, max_a]
 
+        return max_q
+
+    
     def draw_action(self, state):
         self._buffer.add(state)
 
