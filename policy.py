@@ -72,16 +72,20 @@ class WeightedPolicy(TDPolicy):
     def draw_action(self, state):
 
         if self._evaluation:
-            if isinstance(self._approximator.model, list):
-                q_list = list()
-                for q in self._approximator.model:
-                    q_list.append(q.predict(state))
+            if np.random.uniform() < self._epsilon(state):
+                return np.array([np.random.choice(
+                    self._approximator.n_actions)])
             else:
-                q_list = self._approximator.predict(state).squeeze()
+                if isinstance(self._approximator.model, list):
+                    q_list = list()
+                    for q in self._approximator.model:
+                        q_list.append(q.predict(state))
+                else:
+                    q_list = self._approximator.predict(state).squeeze()
 
-            mean_q = np.mean(q_list, axis=0)
-            max_a = np.array([np.random.choice(np.argwhere(mean_q == np.max(mean_q)).ravel())])
-            return max_a
+                mean_q = np.mean(q_list, axis=0)
+                max_a = np.array([np.random.choice(np.argwhere(mean_q == np.max(mean_q)).ravel())])
+                return max_a
         else:
             if np.random.uniform() < self._epsilon(state):
                 return np.array([np.random.choice(
@@ -144,16 +148,20 @@ class VPIPolicy(TDPolicy):
     def draw_action(self, state):
 
         if self._evaluation:
-            if isinstance(self._approximator.model, list):
-                q_list = list()
-                for q in self._approximator.model:
-                    q_list.append(q.predict(state))
+            if np.random.uniform() < self._epsilon(state):
+                return np.array([np.random.choice(
+                    self._approximator.n_actions)])
             else:
-                q_list = self._approximator.predict(state).squeeze()
+                if isinstance(self._approximator.model, list):
+                    q_list = list()
+                    for q in self._approximator.model:
+                        q_list.append(q.predict(state))
+                else:
+                    q_list = self._approximator.predict(state).squeeze()
 
-            mean_q = np.mean(q_list, axis=0)
-            max_a = np.array([np.random.choice(np.argwhere(mean_q == np.max(mean_q)).ravel())])
-            return max_a
+                mean_q = np.mean(q_list, axis=0)
+                max_a = np.array([np.random.choice(np.argwhere(mean_q == np.max(mean_q)).ravel())])
+                return max_a
         else:
             if np.random.uniform() < self._epsilon(state):
                 return np.array([np.random.choice(
