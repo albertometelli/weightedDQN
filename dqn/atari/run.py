@@ -37,6 +37,7 @@ def experiment():
     # Argument parser
     parser = argparse.ArgumentParser()
 
+    arg_game = parser.add_argument_group('Game')
     arg_game.add_argument("--name",
                           type=str,
                           default='BreakoutNoFrameskip-v4',
