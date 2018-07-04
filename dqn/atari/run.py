@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import numpy as np
 sys.path.append('..')
 sys.path.append('../..')
 
@@ -137,7 +138,6 @@ def experiment():
     os.environ["CUDA_VISIBLE_DEVICES"] = args.device
 
     from dqn import DQN
-    import numpy as np
     import tensorflow as tf
 
     from mushroom.core.core import Core
