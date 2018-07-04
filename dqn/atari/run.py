@@ -23,14 +23,6 @@ def print_epoch(epoch):
     print('----------------------------------------------------------------')
 
 
-def get_stats(dataset):
-    score = compute_scores(dataset)
-    print('min_reward: %f, max_reward: %f, mean_reward: %f,'
-          ' games_completed: %d' % score)
-
-    return score
-
-
 def experiment():
     np.random.seed()
 
@@ -148,6 +140,13 @@ def experiment():
 
     from policy import BootPolicy, WeightedPolicy, VPIPolicy
     from net import ConvNet
+
+    def get_stats(dataset):
+        score = compute_scores(dataset)
+        print('min_reward: %f, max_reward: %f, mean_reward: %f,'
+              ' games_completed: %d' % score)
+
+        return score
 
     scores = list()
 
