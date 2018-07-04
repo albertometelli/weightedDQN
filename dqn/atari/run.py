@@ -3,19 +3,8 @@ import os
 import sys
 sys.path.append('..')
 sys.path.append('../..')
-from dqn import  DQN
+
 from joblib import Parallel, delayed
-import numpy as np
-import tensorflow as tf
-
-from mushroom.core.core import Core
-from mushroom.environments import Atari
-from mushroom.utils.dataset import compute_scores
-from mushroom.utils.parameters import LinearDecayParameter, Parameter
-
-
-from policy import BootPolicy, WeightedPolicy, VPIPolicy
-from net import ConvNet
 
 
 """
@@ -47,16 +36,14 @@ def experiment():
     # Argument parser
     parser = argparse.ArgumentParser()
 
-    arg_game = parser.add_argument_group('Game')
     arg_game.add_argument("--name",
                           type=str,
-                          default='BreakoutDeterministic-v4',
+                          default='BreakoutNoFrameskip-v4',
                           help='Gym ID of the Atari game.')
     arg_game.add_argument("--screen-width", type=int, default=84,
                           help='Width of the game screen.')
     arg_game.add_argument("--screen-height", type=int, default=84,
                           help='Height of the game screen.')
-
     arg_mem = parser.add_argument_group('Replay Memory')
     arg_mem.add_argument("--initial-replay-size", type=int, default=50000,
                          help='Initial size of the replay memory.')
@@ -141,8 +128,25 @@ def experiment():
     arg_utils.add_argument('--debug', action='store_true',
                            help='Flag specifying whether the script has to be'
                                 'run in debug mode.')
+    arg_utils.add_argument("--device", type=int, default=0,
+                          help='Index of the GPU.')
 
     args = parser.parse_args()
+
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.device
+
+    from dqn import DQN
+    import numpy as np
+    import tensorflow as tf
+
+    from mushroom.core.core import Core
+    from mushroom.environments import Atari
+    from mushroom.utils.dataset import compute_scores
+    from mushroom.utils.parameters import LinearDecayParameter, Parameter
+
+    from policy import BootPolicy, WeightedPolicy, VPIPolicy
+    from net import ConvNet
 
     scores = list()
 
