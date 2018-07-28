@@ -1,7 +1,9 @@
 import sys
+import os
 import argparse
 import numpy as np
 import warnings
+import time
 from joblib import Parallel, delayed
 
 from mushroom.core import Core
@@ -29,27 +31,33 @@ policy_dict = {'eps-greedy': EpsGreedy,
                'boot': BootPolicy,
                'vpi': VPIPolicy}
 
-def compute_scores(dataset):
+def compute_scores(dataset, gamma):
     scores = list()
+    disc_scores = list()
     lens = list()
 
     score = 0.
+    disc_score = 0.
     episode_steps = 0
     n_episodes = 0
     for i in range(len(dataset)):
         score += dataset[i][2]
+        disc_score += dataset[i][2] * gamma ** episode_steps
         episode_steps += 1
         if dataset[i][-1]:
             scores.append(score)
+            disc_scores.append(disc_score)
             lens.append(episode_steps)
             score = 0.
             episode_steps = 0
             n_episodes += 1
 
     if len(scores) > 0:
-        return np.min(scores), np.max(scores), np.mean(scores), np.std(scores), np.mean(lens), n_episodes
+        return np.min(scores), np.max(scores), np.mean(scores), np.std(scores),  \
+               np.min(disc_scores), np.max(disc_scores), np.mean(disc_scores), \
+               np.std(disc_scores), np.mean(lens), n_episodes
     else:
-        return 0, 0, 0, 0, 0, 0, 0
+        return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min):
     np.random.seed()
@@ -136,6 +144,9 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
     callbacks = [collect_dataset, collect_q]
     core = Core(agent, mdp, callbacks)
 
+    train_scores = []
+    test_scores = []
+
     for n_epoch in range(1, max_steps // evaluation_frequency + 1):
 
         # Train
@@ -145,9 +156,10 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             pi.set_eval(False)
         core.learn(n_steps=evaluation_frequency, n_steps_per_fit=1, quiet=True)
         dataset = collect_dataset.get()
-        q = collect_q.get_values()
-        scores = compute_scores(dataset)
+        scores = compute_scores(dataset, mdp.info.gamma)
         print('Train: ', scores)
+        train_scores.append(scores)
+
 
         collect_dataset.clean()
         mdp.reset()
@@ -158,14 +170,11 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             pi.set_eval(True)
         dataset = core.evaluate(n_steps=test_samples, quiet=True)
         mdp.reset()
-        scores = compute_scores(dataset)
+        scores = compute_scores(dataset, mdp.info.gamma)
         print('Evaluation: ', scores)
+        test_scores.append(scores)
 
-
-        reward_test = np.array([r[2] for r in dataset])
-
-    #return reward, reward_test
-
+    return train_scores, test_scores
 
 if __name__ == '__main__':
 
@@ -174,7 +183,7 @@ if __name__ == '__main__':
     arg_game = parser.add_argument_group('Game')
     arg_game.add_argument("--name",
                           type=str,
-                          default='Chain',
+                          default='RiverSwim',
                           help='Name of the environment to test.')
 
     arg_alg = parser.add_argument_group('Algorithm')
@@ -196,33 +205,30 @@ if __name__ == '__main__':
                           help='Kind of policy to use (not all available for all).')
     arg_alg.add_argument("--n-approximators", type=int, default=10,
                          help="Number of approximators used in the ensemble.")
-    arg_alg.add_argument("--q-max", type=float, default=400,
+    arg_alg.add_argument("--q-max", type=float, default=10000,
                          help='Upper bound for initializing the heads of the network (only ParticleQLearning).')
     arg_alg.add_argument("--q-min", type=float, default=0,
                          help='Lower bound for initializing the heads of the network (only ParticleQLearning).')
 
-    arg_game = parser.add_argument_group('Run')
-    arg_game.add_argument("--n_experiment", type=int, default=1,
+    arg_run = parser.add_argument_group('Run')
+    arg_run.add_argument("--n-experiments", type=int, default=1,
                          help='Number of experiments to execute.')
+    arg_run.add_argument("--dir", type=str, default='./data',
+                         help='Directory where to save data.')
 
     args = parser.parse_args()
 
     fun_args = args.algorithm, args.name, args.update_mode, args.update_type, args.policy, args.n_approximators, args.q_max, args.q_min
 
-    n_experiment = args.n_experiment
+    n_experiment = args.n_experiments
 
-    out = Parallel(n_jobs=-1)(delayed(experiment)(*fun_args) for _ in range(n_experiment))
+    affinity = len(os.sched_getaffinity(0))
+    out = Parallel(n_jobs=affinity)(delayed(experiment)(*fun_args) for _ in range(n_experiment))
 
+    out_dir = args.dir + '/' + args.name + '/' + args.algorithm
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
 
-
-    '''
-    policy_name = {BootPolicy: 'Boot', WeightedPolicy: 'Weighted'}
-    for p in [BootPolicy, WeightedPolicy]:
-        out = Parallel(n_jobs=-1)(delayed(experiment)(
-            n_approximators, p) for _ in range(n_experiment))
-
-        r = [x[0] for x in out]
-        r_test = [x[1] for x in out]
-        np.save('r_%s.npy' % policy_name[p], r)
-        np.save('r_test_%s.npy' % policy_name[p], r_test)
-    '''
+    file_name = 'results_%s_%s_%s_%s' % (args.policy, '1' if args.algorithm == 'ql' else args.n_approximators,
+                                         '' if args.algorithm != 'particle-ql' else args.update_type, time.time())
+    np.save(out_dir + '/' + file_name, out)
