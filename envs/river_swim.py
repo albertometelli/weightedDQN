@@ -8,9 +8,6 @@ def generate_river(n=6,gamma=0.95,small=5, large=10000,  horizon=np.inf):
         r=compute_rewards(nS, nA,small, large)
         mu=compute_mu(nS)
         return FiniteMDP(p, r, mu, gamma, horizon)
-
-        
-
          
     
 def compute_probabilities(nS, nA):

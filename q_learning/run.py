@@ -9,6 +9,7 @@ from joblib import Parallel, delayed
 
 from mushroom.core import Core
 from mushroom.environments.generators.taxi import generate_taxi
+from mushroom.environments.gym_env import Gym
 from mushroom.utils.callbacks import CollectDataset, CollectQ
 from mushroom.utils.dataset import parse_dataset
 from mushroom.utils.parameters import ExponentialDecayParameter, Parameter
@@ -60,6 +61,7 @@ def compute_scores(dataset, gamma):
             disc_scores.append(disc_score)
             lens.append(episode_steps)
             score = 0.
+            disc_score = 0.
             episode_steps = 0
             n_episodes += 1
 
@@ -76,7 +78,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 
     # MDP
     if name == 'Taxi':
-        mdp = generate_taxi('grid.txt')
+        mdp = generate_taxi('grid.txt', horizon=100)
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
@@ -100,6 +102,11 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
+    elif name == 'KnightQuest':
+        mdp = Gym('KnightQuest-v0', gamma=0.99, horizon=100)
+        max_steps = 100000
+        evaluation_frequency = 1000
+        test_samples = 1000
     else:
         raise NotImplementedError
 
@@ -114,12 +121,15 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         if policy not in ['boltzmann', 'eps-greedy']:
             warnings.warn('QL available with only boltzmann and eps-greedy policies!')
             policy = 'eps-greedy'
-        epsilon_train = ExponentialDecayParameter(value=1., decay_exp=.5,
-                                                  size=mdp.info.observation_space.size)
+
         if policy == 'eps-greedy':
+            epsilon_train = ExponentialDecayParameter(value=1., decay_exp=.5,
+                                                      size=mdp.info.observation_space.size)
             pi = policy_dict[policy](epsilon=epsilon_train)
         else:
-            pi = policy_dict[policy](beta=epsilon_train)
+            beta_train = ExponentialDecayParameter(value=1.5 * q_max, decay_exp=.5,
+                                                      size=mdp.info.observation_space.size)
+            pi = policy_dict[policy](beta=beta_train)
         agent = QLearning(pi, mdp.info, **algorithm_params)
     elif algorithm == 'boot-ql':
         if policy not in ['boot', 'weighted']:
@@ -188,18 +198,21 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 
 if __name__ == '__main__':
 
+    from envs.knight_quest import KnightQuest
+
+
     parser = argparse.ArgumentParser()
 
     arg_game = parser.add_argument_group('Game')
     arg_game.add_argument("--name",
                           type=str,
-                          default='Chain',
+                          default='Loop',
                           help='Name of the environment to test.')
 
     arg_alg = parser.add_argument_group('Algorithm')
     arg_alg.add_argument("--algorithm",
                          choices=['ql', 'boot-ql', 'particle-ql'],
-                         default='ql',
+                         default='boot-ql',
                          help='The algorithm.')
     arg_alg.add_argument("--update-mode",
                           choices=['deterministic', 'randomized'],
@@ -215,7 +228,7 @@ if __name__ == '__main__':
                           help='Kind of policy to use (not all available for all).')
     arg_alg.add_argument("--n-approximators", type=int, default=10,
                          help="Number of approximators used in the ensemble.")
-    arg_alg.add_argument("--q-max", type=float, default=2500,
+    arg_alg.add_argument("--q-max", type=float, default=40,
                          help='Upper bound for initializing the heads of the network (only ParticleQLearning).')
     arg_alg.add_argument("--q-min", type=float, default=0,
                          help='Lower bound for initializing the heads of the network (only ParticleQLearning).')
