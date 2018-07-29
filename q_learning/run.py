@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 import warnings
 import time
+import random
 from joblib import Parallel, delayed
 
 from mushroom.core import Core
@@ -31,6 +32,16 @@ policy_dict = {'eps-greedy': EpsGreedy,
                'boot': BootPolicy,
                'vpi': VPIPolicy}
 
+def set_global_seeds(i):
+    try:
+        import tensorflow as tf
+    except ImportError:
+        pass
+    else:
+        tf.set_random_seed(i)
+    np.random.seed(i)
+    random.seed(i)
+
 def compute_scores(dataset, gamma):
     scores = list()
     disc_scores = list()
@@ -53,41 +64,42 @@ def compute_scores(dataset, gamma):
             n_episodes += 1
 
     if len(scores) > 0:
-        return np.min(scores), np.max(scores), np.mean(scores), np.std(scores),  \
+        return len(dataset), np.min(scores), np.max(scores), np.mean(scores), np.std(scores),  \
                np.min(disc_scores), np.max(disc_scores), np.mean(disc_scores), \
                np.std(disc_scores), np.mean(lens), n_episodes
     else:
-        return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
-def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min):
-    np.random.seed()
+def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min, seed):
+    set_global_seeds(seed)
+    print('Using seed %s' % seed)
 
     # MDP
     if name == 'Taxi':
         mdp = generate_taxi('grid.txt')
         max_steps = 1000000
-        evaluation_frequency = 100000
-        test_samples = 100000
+        evaluation_frequency = 10000
+        test_samples = 10000
     elif name == 'Chain':
-        mdp = generate_chain(horizon=1000)
+        mdp = generate_chain(horizon=100)
         max_steps = 100000
-        evaluation_frequency = 10000
-        test_samples = 10000
+        evaluation_frequency = 1000
+        test_samples = 1000
     elif name == 'Loop':
-        mdp = generate_loop(horizon=1000)
+        mdp = generate_loop(horizon=100)
         max_steps = 100000
-        evaluation_frequency = 10000
-        test_samples = 10000
+        evaluation_frequency = 1000
+        test_samples = 1000
     elif name == 'RiverSwim':
-        mdp = generate_river(horizon=1000)
+        mdp = generate_river(horizon=100)
         max_steps = 100000
-        evaluation_frequency = 10000
-        test_samples = 10000
+        evaluation_frequency = 1000
+        test_samples = 1000
     elif name == 'SixArms':
-        mdp = generate_arms(horizon=1000)
+        mdp = generate_arms(horizon=100)
         max_steps = 100000
-        evaluation_frequency = 10000
-        test_samples = 10000
+        evaluation_frequency = 1000
+        test_samples = 1000
     else:
         raise NotImplementedError
 
@@ -109,8 +121,6 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         else:
             pi = policy_dict[policy](beta=epsilon_train)
         agent = QLearning(pi, mdp.info, **algorithm_params)
-        agent.Q = Table(mdp.info.size, initial_value=q_max)
-
     elif algorithm == 'boot-ql':
         if policy not in ['boot', 'weighted']:
             warnings.warn('Bootstrapped QL available with only boot and weighted policies!')
@@ -183,13 +193,13 @@ if __name__ == '__main__':
     arg_game = parser.add_argument_group('Game')
     arg_game.add_argument("--name",
                           type=str,
-                          default='RiverSwim',
+                          default='Chain',
                           help='Name of the environment to test.')
 
     arg_alg = parser.add_argument_group('Algorithm')
     arg_alg.add_argument("--algorithm",
                          choices=['ql', 'boot-ql', 'particle-ql'],
-                         default='particle-ql',
+                         default='ql',
                          help='The algorithm.')
     arg_alg.add_argument("--update-mode",
                           choices=['deterministic', 'randomized'],
@@ -205,7 +215,7 @@ if __name__ == '__main__':
                           help='Kind of policy to use (not all available for all).')
     arg_alg.add_argument("--n-approximators", type=int, default=10,
                          help="Number of approximators used in the ensemble.")
-    arg_alg.add_argument("--q-max", type=float, default=10000,
+    arg_alg.add_argument("--q-max", type=float, default=2500,
                          help='Upper bound for initializing the heads of the network (only ParticleQLearning).')
     arg_alg.add_argument("--q-min", type=float, default=0,
                          help='Lower bound for initializing the heads of the network (only ParticleQLearning).')
@@ -215,15 +225,17 @@ if __name__ == '__main__':
                          help='Number of experiments to execute.')
     arg_run.add_argument("--dir", type=str, default='./data',
                          help='Directory where to save data.')
+    arg_run.add_argument("--seed", type=int, default=0,
+                         help='Seed.')
 
     args = parser.parse_args()
 
-    fun_args = args.algorithm, args.name, args.update_mode, args.update_type, args.policy, args.n_approximators, args.q_max, args.q_min
+    fun_args = [args.algorithm, args.name, args.update_mode, args.update_type, args.policy, args.n_approximators, args.q_max, args.q_min]
 
     n_experiment = args.n_experiments
 
     affinity = len(os.sched_getaffinity(0))
-    out = Parallel(n_jobs=affinity)(delayed(experiment)(*fun_args) for _ in range(n_experiment))
+    out = Parallel(n_jobs=affinity)(delayed(experiment)(*(fun_args + [args.seed+i])) for i in range(n_experiment))
 
     out_dir = args.dir + '/' + args.name + '/' + args.algorithm
     if not os.path.exists(out_dir):
