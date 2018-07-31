@@ -182,7 +182,7 @@ class VPIPolicy(TDPolicy):
                         if count == 0:
                             vpi[a] = 0
                         else:
-                            vpi[a] = 1. / count * np.sum(mu2 - np.clip(qs[:, a], 0, np.inf))
+                            vpi[a] = 1. / count * np.sum(np.clip(mu2 - qs[:, a], 0, np.inf))
                     else:
                         count = VPIPolicy._count_with_ties(qs[:, a], mu1, '>')
                         if count == 0:
