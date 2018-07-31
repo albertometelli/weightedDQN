@@ -158,47 +158,43 @@ class VPIPolicy(TDPolicy):
                 max_a = np.array([np.random.choice(np.argwhere(mean_q == np.max(mean_q)).ravel())])
                 return max_a
             else:
-                if np.random.uniform() < self._epsilon(state):
-                    return np.array([np.random.choice(
-                        self._approximator.n_actions)])
+                if isinstance(self._approximator.model, list):
+                    q_list = list()
+                    for i in range(self._n_approximators):
+                        q_list.append(self._approximator.predict(state, idx=i))
                 else:
-                    if isinstance(self._approximator.model, list):
-                        q_list = list()
-                        for i in range(self._n_approximators):
-                            q_list.append(self._approximator.predict(state, idx=i))
-                    else:
-                        q_list = self._approximator.predict(state).squeeze()
+                    q_list = self._approximator.predict(state).squeeze()
 
-                    qs = np.array(q_list)
+                qs = np.array(q_list)
 
-                    mean_q = np.mean(q_list, axis=0)
-                    best2_idx = np.argpartition(-mean_q, 1)[:2]
-                    a1, a2 = best2_idx if mean_q[best2_idx[0]] >= mean_q[best2_idx[1]] else np.flip(best2_idx)
-                    mu1, mu2 = mean_q[a1], mean_q[a2]
+                mean_q = np.mean(q_list, axis=0)
+                best2_idx = np.argpartition(-mean_q, 1)[:2]
+                a1, a2 = best2_idx if mean_q[best2_idx[0]] >= mean_q[best2_idx[1]] else np.flip(best2_idx)
+                mu1, mu2 = mean_q[a1], mean_q[a2]
 
-                    assert mu1 >= mu2
-                    assert mu1 >= max(mean_q)
+                assert mu1 >= mu2
+                assert mu1 >= max(mean_q)
 
-                    vpi = np.zeros(self._approximator.n_actions)
-                    for a in range(self._approximator.n_actions):
-                        if a == a1:
-                            count = VPIPolicy._count_with_ties(qs[:, a], mu2, '<')
-                            if count == 0:
-                                vpi[a] = 0
-                            else:
-                                vpi[a] = 1. / count * np.sum(mu2 - np.clip(qs[:, a], 0, np.inf))
+                vpi = np.zeros(self._approximator.n_actions)
+                for a in range(self._approximator.n_actions):
+                    if a == a1:
+                        count = VPIPolicy._count_with_ties(qs[:, a], mu2, '<')
+                        if count == 0:
+                            vpi[a] = 0
                         else:
-                            count = VPIPolicy._count_with_ties(qs[:, a], mu1, '>')
-                            if count == 0:
-                                vpi[a] = 0
-                            else:
-                                vpi[a] = 1. / count * np.sum(np.clip(qs[:, a] - mu1, 0, np.inf))
+                            vpi[a] = 1. / count * np.sum(mu2 - np.clip(qs[:, a], 0, np.inf))
+                    else:
+                        count = VPIPolicy._count_with_ties(qs[:, a], mu1, '>')
+                        if count == 0:
+                            vpi[a] = 0
+                        else:
+                            vpi[a] = 1. / count * np.sum(np.clip(qs[:, a] - mu1, 0, np.inf))
 
-                    score = mean_q + vpi
+                score = mean_q + vpi
 
-                    max_a = np.array([np.random.choice(np.argwhere(score == np.max(score)).ravel())])
+                max_a = np.array([np.random.choice(np.argwhere(score == np.max(score)).ravel())])
 
-                    return max_a
+                return max_a
         else:
             return np.array([np.random.choice(self._approximator.n_actions)])
 
