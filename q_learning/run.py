@@ -16,6 +16,7 @@ from mushroom.utils.parameters import ExponentialDecayParameter, Parameter
 from mushroom.policy.td_policy import EpsGreedy, Boltzmann
 from mushroom.algorithms.value.td import QLearning
 from mushroom.utils.table import Table
+from envs.knight_quest import KnightQuest
 
 from boot_q_learning import BootstrappedQLearning
 from particle_q_learning import ParticleQLearning
@@ -72,7 +73,7 @@ def compute_scores(dataset, gamma):
     else:
         return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
-def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min, seed):
+def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min, lr_exp, seed):
     set_global_seeds(seed)
     print('Using seed %s' % seed)
 
@@ -113,7 +114,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
     epsilon_test = Parameter(0)
 
     # Agent
-    learning_rate = ExponentialDecayParameter(value=1., decay_exp=.3,
+    learning_rate = ExponentialDecayParameter(value=1., decay_exp=lr_exp,
                                               size=mdp.info.size)
     algorithm_params = dict(learning_rate=learning_rate)
 
@@ -198,15 +199,12 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 
 if __name__ == '__main__':
 
-    from envs.knight_quest import KnightQuest
-
-
     parser = argparse.ArgumentParser()
 
     arg_game = parser.add_argument_group('Game')
     arg_game.add_argument("--name",
                           type=str,
-                          default='Loop',
+                          default='KnightQuest',
                           help='Name of the environment to test.')
 
     arg_alg = parser.add_argument_group('Algorithm')
@@ -232,7 +230,8 @@ if __name__ == '__main__':
                          help='Upper bound for initializing the heads of the network (only ParticleQLearning).')
     arg_alg.add_argument("--q-min", type=float, default=0,
                          help='Lower bound for initializing the heads of the network (only ParticleQLearning).')
-
+    arg_alg.add_argument("--lr-exp", type=float, default=0.3,
+                         help='Exponential decay for lr')
     arg_run = parser.add_argument_group('Run')
     arg_run.add_argument("--n-experiments", type=int, default=1,
                          help='Number of experiments to execute.')
@@ -243,7 +242,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    fun_args = [args.algorithm, args.name, args.update_mode, args.update_type, args.policy, args.n_approximators, args.q_max, args.q_min]
+    fun_args = [args.algorithm, args.name, args.update_mode, args.update_type, args.policy, args.n_approximators, args.q_max, args.q_min, args.lr_exp]
 
     n_experiment = args.n_experiments
 
@@ -254,6 +253,6 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    file_name = 'results_%s_%s_%s_%s' % (args.policy, '1' if args.algorithm == 'ql' else args.n_approximators,
-                                         '' if args.algorithm != 'particle-ql' else args.update_type, time.time())
+    file_name = 'results_%s_%s_%s_%s_%s' % (args.policy, '1' if args.algorithm == 'ql' else args.n_approximators,
+                                         '' if args.algorithm != 'particle-ql' else args.update_type, args.lr_exp, time.time())
     np.save(out_dir + '/' + file_name, out)
