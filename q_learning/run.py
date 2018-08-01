@@ -208,7 +208,7 @@ if __name__ == '__main__':
     arg_alg = parser.add_argument_group('Algorithm')
     arg_alg.add_argument("--algorithm",
                          choices=['ql', 'boot-ql', 'particle-ql'],
-                         default='boot-ql',
+                         default='particle-ql',
                          help='The algorithm.')
     arg_alg.add_argument("--update-mode",
                           choices=['deterministic', 'randomized'],
