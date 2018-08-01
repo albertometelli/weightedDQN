@@ -246,6 +246,16 @@ class KnightQuest(DiscreteEnv):
         self.R_mat = (self.R_mat + 20) / 40.
 
         super(KnightQuest, self).__init__(real_nS, nA, P, isd)
+
+        self.initial_state = 0
+        self.state = 0  # Index of the current state
+        self.state_actions = state_actions
+        self.max_nb_actions_per_state = max(map(len, self.state_actions))  # Maximal number of actions per state
+        self.reward = None  # Last reward obtained while exploring the SMDP (init = 0)
+        self.holding_time = None  # Last holding time obtained while exploring the SMDP (init = 0)
+        self.nb_states = len(self.state_actions)  # Total number of states
+        self.max_nb_actions_per_state = max(map(len, self.state_actions))
+
         self.reset()
         self.lastaction = None
         self.holding_time = 1
@@ -292,15 +302,15 @@ class KnightQuest(DiscreteEnv):
         for s, p in self.isd:
             P.append(p)
         idx = np.random.choice(len(P), p=P)
-        self.state = self.isd[idx][0]
+        self.state = np.array([self.isd[idx][0]])
         return self.state
 
     def step(self, action):
         self.lastaction = action
-        p = self.P_mat[self.state, action]
+        p = self.P_mat[np.asscalar(self.state), action]
         next_state = np.asscalar(np.random.choice(self.nb_states, 1, p=p))
         self.reward = self.R_mat[self.state, action]
-        self.state = next_state
+        self.state = np.array([next_state])
         return self.state, self.reward, False, {}
 
     # def execute2(self, action):

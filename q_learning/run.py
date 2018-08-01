@@ -161,8 +161,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 
     # Algorithm
     collect_dataset = CollectDataset()
-    collect_q = CollectQ(agent.approximator)
-    callbacks = [collect_dataset, collect_q]
+    callbacks = [collect_dataset]
     core = Core(agent, mdp, callbacks)
 
     train_scores = []
@@ -180,7 +179,6 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         scores = compute_scores(dataset, mdp.info.gamma)
         print('Train: ', scores)
         train_scores.append(scores)
-
 
         collect_dataset.clean()
         mdp.reset()
