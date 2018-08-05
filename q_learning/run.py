@@ -16,12 +16,12 @@ from mushroom.utils.parameters import ExponentialDecayParameter, Parameter
 from mushroom.policy.td_policy import EpsGreedy, Boltzmann
 from mushroom.algorithms.value.td import QLearning
 from mushroom.utils.table import Table
-from envs.knight_quest import KnightQuest
 
 from boot_q_learning import BootstrappedQLearning
 from particle_q_learning import ParticleQLearning
 sys.path.append('..')
 from policy import BootPolicy, WeightedPolicy, VPIPolicy
+from envs.knight_quest import KnightQuest
 
 from envs.chain import generate_chain
 from envs.loop import generate_loop
@@ -71,7 +71,7 @@ def compute_scores(dataset, gamma):
                np.min(disc_scores), np.max(disc_scores), np.mean(disc_scores), \
                np.std(disc_scores), np.mean(lens), n_episodes
     else:
-        return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        return  len(dataset), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min, lr_exp, seed):
     set_global_seeds(seed)
@@ -104,7 +104,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         evaluation_frequency = 1000
         test_samples = 1000
     elif name == 'KnightQuest':
-        mdp = Gym('KnightQuest-v0', gamma=0.99, horizon=100)
+        mdp = Gym('KnightQuest-v0', gamma=0.99, horizon=np.inf)
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
@@ -220,7 +220,7 @@ if __name__ == '__main__':
                           help='Kind of update to perform (only ParticleQLearning).')
     arg_alg.add_argument("--policy",
                           choices=['weighted', 'vpi', 'boot', 'boltzmann', 'eps-greedy'],
-                          default='boot',
+                          default='weighted',
                           help='Kind of policy to use (not all available for all).')
     arg_alg.add_argument("--n-approximators", type=int, default=10,
                          help="Number of approximators used in the ensemble.")

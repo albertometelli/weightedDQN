@@ -53,7 +53,7 @@ class KnightQuest(DiscreteEnv):
 
         fromExtendedToCompactIdxs = {}
         fromCompactToExtended = []
-        states_to_delete = []
+        absorbing_states = []
 
         real_nS = -1
         P = {}
@@ -64,9 +64,14 @@ class KnightQuest(DiscreteEnv):
                         for object in range(self.n_objects):
                             state = self.encode(row, col, goldlevel, enemypos, object)
 
-                            if not self.is_valid_state(row, col, goldlevel, enemypos, object):
+                            if  self.is_absorbing_state(row, col, goldlevel, enemypos, object):
                                 # this state cannot be reached
-                                states_to_delete += [state]
+                                real_nS += 1
+                                P[real_nS] = {a : [] for a in range(nA)}
+                                fromExtendedToCompactIdxs[state] = real_nS
+                                fromCompactToExtended.append(state)
+                                absorbing_states.append(real_nS)
+                                continue
                             else:
                                 real_nS += 1
                                 P[real_nS] = {a : [] for a in range(nA)}
@@ -113,23 +118,22 @@ class KnightQuest(DiscreteEnv):
                                                     newobject = 2 if object in [0,2] else 3
                                                 else:
                                                     reward = -10
-
+                                            nextstate = self.encode(newrow, newcol, newgoldlevel, newenemypos, newobject)
+                                            
                                             if (newrow, newcol) == self.enemy_locs[newenemypos] and newobject not in [2,3]:
                                                 # agent moves in the same position of the enemy
                                                 # but she does not have the armor => reset
                                                 reward = -20
-                                                for state_id, prob in isd:
-                                                    P[real_nS][a] += [(state_id, prob * newenemyposprob, reward)]
+                                                P[real_nS][a] += [(nextstate,  newenemyposprob, reward)]
                                                     # P[state, a, state_id] = prob * newenemyposprob
                                             elif (newrow, newcol) == self.target and newobject in [1,3]:
                                                 # the agent reaches the target (princess) and has the key => reset
                                                 reward = 20
-                                                for state_id, prob in isd:
-                                                    P[real_nS][a] += [(state_id, prob * newenemyposprob, reward)]
+                                                P[real_nS][a] += [(nextstate,  newenemyposprob, reward)]
                                                     # P[state, a, state_id] = prob * newenemyposprob
                                             else:
                                                 # normal transition
-                                                if self.is_valid_state(newrow, newcol, newgoldlevel, newenemypos, newobject):
+                                                if not self.is_absorbing_state(newrow, newcol, newgoldlevel, newenemypos, newobject):
                                                     nextstate = self.encode(newrow, newcol, newgoldlevel, newenemypos, newobject)
                                                     P[real_nS][a] += [(nextstate, newenemyposprob, reward)]
                                                     # P[state, a, nextstate] += newenemyposprob
@@ -190,19 +194,21 @@ class KnightQuest(DiscreteEnv):
                                                         # agent moves in the same position of the enemy
                                                         # but she does not have the armor => reset
                                                         reward = -20
-                                                        for state_id, prob in isd:
-                                                            P[real_nS][a] += [(state_id, prob * p * newenemyposprob, reward)]
+                                                        nextstate = self.encode(newrow, newcol, newgoldlevel, newenemypos,
+                                                                        newobject)
+                                                        P[real_nS][a] += [(nextstate,  p * newenemyposprob, reward)]
                                                             # P[state, a, state_id] += prob * p
                                                     elif (newrow, newcol) == self.target and newobject in [1, 3]:
                                                         # the agent reaches the target (princess) and has the key => reset
                                                         reward = 20
-                                                        for state_id, prob in isd:
-                                                            P[real_nS][a] += [(state_id, prob * p * newenemyposprob, reward)]
+                                                        nextstate = self.encode(newrow, newcol, newgoldlevel, newenemypos,
+                                                                        newobject)
+                                                        P[real_nS][a] += [(nextstate, p * newenemyposprob, reward)]
                                                             # P[state, a, state_id] += prob * p
                                                     else:
                                                         # normal transition
                                                         reward = -1
-                                                        if self.is_valid_state(newrow, newcol, newgoldlevel, newenemypos,newobject):
+                                                        if not self.is_absorbing_state(newrow, newcol, newgoldlevel, newenemypos,newobject):
                                                             nextstate = self.encode(newrow, newcol, newgoldlevel, newenemypos, newobject)
                                                             P[real_nS][a] += [(nextstate, newenemyposprob * p, reward)]
                                                             # P[state, a, nextstate] += newenemyposprob * p
@@ -217,7 +223,7 @@ class KnightQuest(DiscreteEnv):
 
         self.fromExtendedToCompactIdxs = fromExtendedToCompactIdxs
         self.fromCompactToExtended = fromCompactToExtended
-
+        self.absorbing_states=absorbing_states
         state_actions = []
         for s in range(real_nS):
             for a in range(nA):
@@ -235,16 +241,16 @@ class KnightQuest(DiscreteEnv):
                     self.R_mat[s,a] += p * reward
                     expected_r += p * reward
                     tot += p
-                assert np.isclose(tot, 1.), tot
+                #assert np.isclose(tot, 1.), tot
                 P[s][a] = ([],[])
                 for k, v in L.items():
                     P[s][a][0].append(k)
                     P[s][a][1].append(v)
             state_actions.append(list(range(nA)))
-
+        
         # self.P = P
         self.R_mat = (self.R_mat + 20) / 40.
-
+        
         super(KnightQuest, self).__init__(real_nS, nA, P, isd)
 
         self.initial_state = 0
@@ -259,12 +265,12 @@ class KnightQuest(DiscreteEnv):
         self.reset()
         self.lastaction = None
         self.holding_time = 1
-
-    def is_valid_state(self, agentrow, agentcol, goldlevel, enemypos, object):
+        
+    def is_absorbing_state(self, agentrow, agentcol, goldlevel, enemypos, object):
         if (agentrow, agentcol) == self.enemy_locs[enemypos] and object not in [2, 3] \
             or (agentrow, agentcol) == self.target and object in [1, 3]:
-            return False
-        return True
+            return True
+        return False
 
     def encode(self, agentrow, agentcol, goldlevel, enemypos, object):
         # nr, nc, n_enemyloc, n_objects
@@ -309,9 +315,10 @@ class KnightQuest(DiscreteEnv):
         self.lastaction = action
         p = self.P_mat[np.asscalar(self.state), action]
         next_state = np.asscalar(np.random.choice(self.nb_states, 1, p=p))
+        absorbing = next_state in self.absorbing_states
         self.reward = self.R_mat[self.state, action]
         self.state = np.array([next_state])
-        return self.state, self.reward, False, {}
+        return self.state, self.reward, absorbing, {}
 
     # def execute2(self, action):
     #     self.lastaction = action
@@ -321,9 +328,7 @@ class KnightQuest(DiscreteEnv):
     #     self.state = next_state
     '''
     def render(self, mode='human'):
-
         outfile = StringIO() if mode == 'ansi' else sys.stdout
-
         out = self.desc.copy().tolist()
         out = [[c.decode('utf-8') for c in line] for line in out]
         taxirow, taxicol, goldlevel, enemypos, objectidx = self.decode(self.fromCompactToExtended[self.state])
@@ -336,7 +341,6 @@ class KnightQuest(DiscreteEnv):
             out[1+taxirow][2*taxicol+1] = utils.colorize(out[1+taxirow][2*taxicol+1], 'green', highlight=True)
         else: # both armor and key
             out[1+taxirow][2*taxicol+1] = utils.colorize(ul(out[1+taxirow][2*taxicol+1]), 'red', highlight=True)
-
         di, dj = self.enemy_locs[enemypos]
         if (di,dj) != (taxirow, taxicol):
             out[1+di][2*dj+1] = utils.colorize('e', 'yellow')
@@ -345,15 +349,12 @@ class KnightQuest(DiscreteEnv):
             outfile.write("  ({}) [gold: {}, object: {}]\n".format(self.action_names[self.lastaction], goldlevel, ['None', 'key', 'armor', 'key/armor'][objectidx]))
         else:
             outfile.write("  (-) [gold: {}, object: {}]\n".format(goldlevel,['None', 'key', 'armor', 'key/armor'][objectidx]))
-
     def show(self):
-
         dim = 200
         rows, cols = 4 + 0.5, 4
         if not hasattr(self, 'window'):
             root = Tk()
             self.window = gui.GUI(root)
-
             self.window.config(width=cols * (dim + 6), height=rows * (dim + 6))
             my_font = tkFont.Font(family="Arial", size=32, weight="bold")
             for r in range(4):
