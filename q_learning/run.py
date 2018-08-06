@@ -260,10 +260,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     n_experiment = args.n_experiments
-    out_dir = args.dir + '/' + args.name + '/' + args.algorithm
+    
     affinity = len(os.sched_getaffinity(0))
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
+    
     for env in envs:
         for alg in algorithms:
             for policy in alg_to_policies[alg]:     
@@ -271,6 +270,9 @@ if __name__ == '__main__':
                     qs=env_to_qs[env]
                     fun_args = [alg, env, args.update_mode, update_type, policy, args.n_approximators, qs[1], qs[0], args.lr_exp]
                     out = Parallel(n_jobs=affinity)(delayed(experiment)(*(fun_args + [args.seed+i])) for i in range(n_experiment))
+                    out_dir = args.dir + '/' + env+ '/' + alg
+                    if not os.path.exists(out_dir):
+                        os.makedirs(out_dir)
                     file_name = 'results_%s_%s_%s_%s_%s' % (args.policy, '1' if args.algorithm == 'ql' else args.n_approximators,
                                          '' if args.algorithm != 'particle-ql' else args.update_type, args.lr_exp, time.time())
                     np.save(out_dir + '/' + file_name, out)
