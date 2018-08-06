@@ -273,6 +273,6 @@ if __name__ == '__main__':
                     out_dir = args.dir + '/' + env+ '/' + alg
                     if not os.path.exists(out_dir):
                         os.makedirs(out_dir)
-                    file_name = 'results_%s_%s_%s_%s_%s' % (args.policy, '1' if args.algorithm == 'ql' else args.n_approximators,
-                                         '' if args.algorithm != 'particle-ql' else args.update_type, args.lr_exp, time.time())
+                    file_name = 'results_%s_%s_%s_%s_%s' % (policy, '1' if args.algorithm == 'ql' else args.n_approximators,
+                                         '' if alg != 'particle-ql' else update_type, args.lr_exp, time.time())
                     np.save(out_dir + '/' + file_name, out)
