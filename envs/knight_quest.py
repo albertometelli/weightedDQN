@@ -65,7 +65,6 @@ class KnightQuest(DiscreteEnv):
                             state = self.encode(row, col, goldlevel, enemypos, object)
 
                             if  self.is_absorbing_state(row, col, goldlevel, enemypos, object):
-                                # this state cannot be reached
                                 real_nS += 1
                                 P[real_nS] = {a : [] for a in range(nA)}
                                 fromExtendedToCompactIdxs[state] = real_nS
@@ -219,7 +218,7 @@ class KnightQuest(DiscreteEnv):
         for s, p in isd:
             self.isd.append((fromExtendedToCompactIdxs[s], p))
         self.P_mat = np.zeros((real_nS, nA, real_nS))
-        self.R_mat = np.zeros((real_nS, nA))
+        self.R_mat = np.zeros((real_nS, nA, real_nS))
 
         self.fromExtendedToCompactIdxs = fromExtendedToCompactIdxs
         self.fromCompactToExtended = fromCompactToExtended
@@ -238,7 +237,7 @@ class KnightQuest(DiscreteEnv):
                     else:
                         L[next] = L[next] + p
                     self.P_mat[s,a,next] += p
-                    self.R_mat[s,a] += p * reward
+                    self.R_mat[s,a, next] += reward
                     expected_r += p * reward
                     tot += p
                 #assert np.isclose(tot, 1.), tot
@@ -249,7 +248,7 @@ class KnightQuest(DiscreteEnv):
             state_actions.append(list(range(nA)))
         
         # self.P = P
-        self.R_mat = (self.R_mat + 20) / 40.
+        #self.R_mat = (self.R_mat + 20) / 40.
         
         super(KnightQuest, self).__init__(real_nS, nA, P, isd)
 
@@ -316,7 +315,7 @@ class KnightQuest(DiscreteEnv):
         p = self.P_mat[np.asscalar(self.state), action]
         next_state = np.asscalar(np.random.choice(self.nb_states, 1, p=p))
         absorbing = next_state in self.absorbing_states
-        self.reward = self.R_mat[self.state, action]
+        self.reward = self.R_mat[self.state, action, next_state]
         self.state = np.array([next_state])
         return self.state, self.reward, absorbing, {}
 

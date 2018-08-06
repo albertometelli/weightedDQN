@@ -18,7 +18,7 @@ from mushroom.algorithms.value.td import QLearning
 from mushroom.utils.table import Table
 
 from boot_q_learning import BootstrappedQLearning
-from particle_q_learning import ParticleQLearning
+from particle_q_learning import ParticleQLearning, ParticleDoubleQLearning
 sys.path.append('..')
 from policy import BootPolicy, WeightedPolicy, VPIPolicy
 from envs.knight_quest import KnightQuest
@@ -104,7 +104,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         evaluation_frequency = 1000
         test_samples = 1000
     elif name == 'KnightQuest':
-        mdp = Gym('KnightQuest-v0', gamma=0.99, horizon=np.inf)
+        mdp = Gym('KnightQuest-v0', gamma=0.99, horizon=100)
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
@@ -154,7 +154,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
                                 q_max=q_max,
                                 q_min=q_min,
                                 **algorithm_params)
-        agent = ParticleQLearning(pi, mdp.info, **algorithm_params)
+        agent = ParticleDoubleQLearning(pi, mdp.info, **algorithm_params)
         epsilon_train = Parameter(0)
     else:
         raise ValueError()
@@ -198,7 +198,27 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-
+    algorithms=['ql', 'boot-ql', 'particle-ql']
+    update_types=['mean', 'weighted']
+    envs=["KnightQuest", "Taxi", "Chain", "Loop", "RiverSwim", "SixArms"]
+    alg_to_policies={
+        "particle-ql":[ "weighted","vpi"], 
+        "boot-ql":["boot", "weighted"], 
+        "ql":["boltzmann","eps-greedy" ]
+    }
+    alg_to_update_types={
+        "particle-ql":[ "weighted","mean"], 
+        "boot-ql":["weighted"], 
+        "ql":["weighted"]
+    }
+    env_to_qs={
+        "KnightQuest":(-20, 20), 
+        "Taxi":(0, 40), 
+        "Loop":(0, 60), 
+        "Chain":(0, 300), 
+        "RiverSwim":(0, 10000), 
+        "SixArms":(0, 10e7)
+    }
     arg_game = parser.add_argument_group('Game')
     arg_game.add_argument("--name",
                           type=str,
@@ -207,7 +227,7 @@ if __name__ == '__main__':
 
     arg_alg = parser.add_argument_group('Algorithm')
     arg_alg.add_argument("--algorithm",
-                         choices=['ql', 'boot-ql', 'particle-ql'],
+                         choices=algorithms,
                          default='particle-ql',
                          help='The algorithm.')
     arg_alg.add_argument("--update-mode",
@@ -228,7 +248,7 @@ if __name__ == '__main__':
                          help='Upper bound for initializing the heads of the network (only ParticleQLearning).')
     arg_alg.add_argument("--q-min", type=float, default=0,
                          help='Lower bound for initializing the heads of the network (only ParticleQLearning).')
-    arg_alg.add_argument("--lr-exp", type=float, default=0.3,
+    arg_alg.add_argument("--lr-exp", type=float, default=0.2,
                          help='Exponential decay for lr')
     arg_run = parser.add_argument_group('Run')
     arg_run.add_argument("--n-experiments", type=int, default=1,
@@ -239,18 +259,18 @@ if __name__ == '__main__':
                          help='Seed.')
 
     args = parser.parse_args()
-
-    fun_args = [args.algorithm, args.name, args.update_mode, args.update_type, args.policy, args.n_approximators, args.q_max, args.q_min, args.lr_exp]
-
     n_experiment = args.n_experiments
-
-    affinity = len(os.sched_getaffinity(0))
-    out = Parallel(n_jobs=affinity)(delayed(experiment)(*(fun_args + [args.seed+i])) for i in range(n_experiment))
-
     out_dir = args.dir + '/' + args.name + '/' + args.algorithm
+    affinity = len(os.sched_getaffinity(0))
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-
-    file_name = 'results_%s_%s_%s_%s_%s' % (args.policy, '1' if args.algorithm == 'ql' else args.n_approximators,
+    for env in envs:
+        for alg in algorithms:
+            for policy in alg_to_policies[alg]:     
+                for update_type in alg_to_update_types[alg]:
+                    qs=env_to_qs[env]
+                    fun_args = [alg, env, args.update_mode, update_type, policy, args.n_approximators, qs[1], qs[0], args.lr_exp]
+                    out = Parallel(n_jobs=affinity)(delayed(experiment)(*(fun_args + [args.seed+i])) for i in range(n_experiment))
+                    file_name = 'results_%s_%s_%s_%s_%s' % (args.policy, '1' if args.algorithm == 'ql' else args.n_approximators,
                                          '' if args.algorithm != 'particle-ql' else args.update_type, args.lr_exp, time.time())
-    np.save(out_dir + '/' + file_name, out)
+                    np.save(out_dir + '/' + file_name, out)
