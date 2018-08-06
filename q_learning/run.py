@@ -79,7 +79,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 
     # MDP
     if name == 'Taxi':
-        mdp = generate_taxi('grid.txt', horizon=100)
+        mdp = generate_taxi('../grid.txt', horizon=100)
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
@@ -200,7 +200,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     algorithms=['ql', 'boot-ql', 'particle-ql']
     update_types=['mean', 'weighted']
-    envs=["KnightQuest", "Taxi", "Chain", "Loop", "RiverSwim", "SixArms"]
+    envs=[ "Chain","Taxi","KnightQuest",  "Loop", "RiverSwim", "SixArms"]
     alg_to_policies={
         "particle-ql":[ "weighted","vpi"], 
         "boot-ql":["boot", "weighted"], 
