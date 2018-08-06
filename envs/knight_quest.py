@@ -1,12 +1,7 @@
 import numpy as np
 from gym.envs.toy_text.discrete import DiscreteEnv
 from gym.envs.registration import register
-import sys
-from six import StringIO
-from gym import utils
-import time
-from tkinter import Tk
-import tkinter.font as tkFont
+
 
 MAP = [
     "+-------+",
