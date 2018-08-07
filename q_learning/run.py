@@ -79,7 +79,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 
     # MDP
     if name == 'Taxi':
-        mdp = generate_taxi('../grid.txt')
+        mdp = generate_taxi('../grid.txt', horizon=1000)
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
@@ -154,7 +154,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
                                 q_max=q_max,
                                 q_min=q_min,
                                 **algorithm_params)
-        agent = ParticleDoubleQLearning(pi, mdp.info, **algorithm_params)
+        agent = ParticleQLearning(pi, mdp.info, **algorithm_params)
         epsilon_train = Parameter(0)
     else:
         raise ValueError()
@@ -221,14 +221,25 @@ if __name__ == '__main__':
     }
     arg_game = parser.add_argument_group('Game')
     arg_game.add_argument("--name",
-                          type=str,
-                          default='KnightQuest',
+                          choices=[ 
+                          "Chain",
+                          "Taxi",
+                          "KnightQuest",
+                          "Loop", 
+                          "RiverSwim",
+                          "SixArms", 
+                          ""],
+                          default='',
                           help='Name of the environment to test.')
 
     arg_alg = parser.add_argument_group('Algorithm')
     arg_alg.add_argument("--algorithm",
-                         choices=algorithms,
-                         default='particle-ql',
+                         choices=[
+                         'ql',
+                         'boot-ql',
+                         'particle-ql',
+                         ''],
+                         default='',
                          help='The algorithm.')
     arg_alg.add_argument("--update-mode",
                           choices=['deterministic', 'randomized'],
@@ -262,7 +273,10 @@ if __name__ == '__main__':
     n_experiment = args.n_experiments
     
     affinity = len(os.sched_getaffinity(0))
-    
+    if args.name !='':
+        envs=[args.name]
+    if args.algorithm !='':
+        algorithms=[args.algorithm]
     for env in envs:
         for alg in algorithms:
             for policy in alg_to_policies[alg]:     
