@@ -17,7 +17,7 @@ from mushroom.policy.td_policy import EpsGreedy, Boltzmann
 from mushroom.algorithms.value.td import QLearning
 from mushroom.utils.table import Table
 
-from boot_q_learning import BootstrappedQLearning
+from boot_q_learning import BootstrappedQLearning,  BootstrappedDoubleQLearning
 from particle_q_learning import ParticleQLearning, ParticleDoubleQLearning
 sys.path.append('..')
 from policy import BootPolicy, WeightedPolicy, VPIPolicy
@@ -141,7 +141,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
                                 mu=(q_max + q_min) / 2,
                                 sigma=q_max - q_min,
                                 **algorithm_params)
-        agent = BootstrappedQLearning(pi, mdp.info, **algorithm_params)
+        agent = BootstrappedDoubleQLearning(pi, mdp.info, **algorithm_params)
         epsilon_train = Parameter(0)
     elif algorithm == 'particle-ql':
         if policy not in ['weighted', 'vpi']:
