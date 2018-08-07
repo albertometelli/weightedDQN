@@ -79,7 +79,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 
     # MDP
     if name == 'Taxi':
-        mdp = generate_taxi('../grid.txt', horizon=100)
+        mdp = generate_taxi('../grid.txt')
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
@@ -213,7 +213,7 @@ if __name__ == '__main__':
     }
     env_to_qs={
         "KnightQuest":(-20, 20), 
-        "Taxi":(0, 40), 
+        "Taxi":(0, 10), 
         "Loop":(0, 60), 
         "Chain":(0, 300), 
         "RiverSwim":(0, 10000), 
