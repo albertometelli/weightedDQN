@@ -227,11 +227,11 @@ if __name__ == '__main__':
     }
     env_to_qs={
         "KnightQuest": (-20, 20),
-        "Taxi": (0, 10),
-        "Loop": (0, 60),
-        "Chain": (0, 300),
-        "RiverSwim": (0, 10000),
-        "SixArms": (0, 10e7)
+        "Taxi": (0, 15),
+        "Loop": (0, 40),
+        "Chain": (0, 400),
+        "RiverSwim": (0, 70000),
+        "SixArms": (0, 200000)
     }
     double_vec = [False, True]
     arg_game = parser.add_argument_group('Game')
