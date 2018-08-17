@@ -101,7 +101,8 @@ class ParticleQLearning(Particle):
 
             for i in range(self._n_approximators):
                 self.Q.model[i][state, action] = q_current[i] + self.alpha[i](state, action) * (
-reward + self.mdp_info.gamma * q_next[i] - q_current[i])
+                        reward + self.mdp_info.gamma * q_next[i] - q_current[i])
+
 
 class ParticleDoubleQLearning(Particle):
     def __init__(self, policy, mdp_info, learning_rate, n_approximators=10, update_mode='deterministic',
@@ -115,7 +116,7 @@ class ParticleDoubleQLearning(Particle):
                    EnsembleTable(n_approximators, mdp_info.size)]
         init_values = np.linspace(q_min, q_max, n_approximators)
         for i in range(len(self.Qs[0])):
-            self.Qs[0][i].table =np.tile([init_values[i]], self.Q[i].shape)
+            self.Qs[0][i].table = np.tile([init_values[i]], self.Q[i].shape)
 
         for i in range(len(self.Qs[1])):
             self.Qs[1][i].table = self.Qs[0][i].table.copy()
@@ -153,8 +154,9 @@ class ParticleDoubleQLearning(Particle):
 
             for i in range(self._n_approximators):
                 self.Qs[i_q][i][state, action] = q_current[i] + self.alpha[i_q][i](state, action) * (
-reward + self.mdp_info.gamma * q_next[i] - q_current[i])
+                        reward + self.mdp_info.gamma * q_next[i] - q_current[i])
                 self._update_Q(state, action, idx=i)
+
     def _update_Q(self, state, action, idx):
         self.Q[idx][state, action] = np.mean(
             [q[idx][state, action] for q in self.Qs])
