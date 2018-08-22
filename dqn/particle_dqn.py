@@ -8,12 +8,11 @@ from mushroom.approximators.regressor import Ensemble, Regressor
 from replay_memory import ReplayMemory
 
 
-class DQN(Agent):
+class ParticleDQN(Agent):
     def __init__(self, approximator, policy, mdp_info, batch_size,
                  target_update_frequency, initial_replay_size, train_frequency,
                  max_replay_size, fit_params=None, approximator_params=None,
                  n_approximators=1, clip_reward=True,
-                 max_no_op_actions=0, no_op_action_value=0,
                  weighted_update=False):
         self._fit_params = dict() if fit_params is None else fit_params
 
@@ -41,7 +40,7 @@ class DQN(Agent):
         self.target_approximator.model.set_weights(
             self.approximator.model.get_weights())
 
-        super(DQN, self).__init__(policy, mdp_info)
+        super(ParticleDQN, self).__init__(policy, mdp_info)
 
     def fit(self, dataset):
         
@@ -110,7 +109,7 @@ class DQN(Agent):
 
 
     def draw_action(self, state):
-        action = super(DQN, self).draw_action(np.array(state))
+        action = super(ParticleDQN, self).draw_action(np.array(state))
 
         return action
 
@@ -118,7 +117,7 @@ class DQN(Agent):
         self.policy.set_idx(np.random.randint(self._n_approximators))
 
 
-class DoubleDQN(DQN):
+class ParticleDoubleDQN(ParticleDQN):
     """
     Double DQN algorithm.
     "Deep Reinforcement Learning with Double Q-Learning".
