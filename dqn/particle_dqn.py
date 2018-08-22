@@ -20,8 +20,6 @@ class ParticleDQN(Agent):
         self._n_approximators = n_approximators
         self._clip_reward = clip_reward
         self._target_update_frequency = target_update_frequency // train_frequency
-        self._max_no_op_actions = max_no_op_actions
-        self._no_op_action_value = no_op_action_value
         self.weighted_update = weighted_update
 
         self._replay_memory = ReplayMemory(initial_replay_size, max_replay_size)
