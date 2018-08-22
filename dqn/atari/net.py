@@ -147,6 +147,7 @@ class ConvNet:
             self.n_approximators = convnet_pars['n_approximators']
             self.q_min = convnet_pars['q_min']
             self.q_max = convnet_pars['q_max']
+            print(convnet_pars.keys())
             self.init_type = convnet_pars['init_type']
 
             if self.init_type == 'boot':
