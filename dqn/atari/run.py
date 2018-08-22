@@ -267,6 +267,7 @@ def experiment():
             folder_name=folder_name,
             q_min=args.q_min, 
             q_max=args.q_max,
+            init_type=args.init_type,
             loss=args.loss, 
             optimizer={'name': args.optimizer,
                        'lr': args.learning_rate,
