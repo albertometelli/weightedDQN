@@ -162,8 +162,8 @@ def experiment():
         pi = VPIPolicy(args.n_approximators, epsilon=epsilon_test)
 
         # Approximator
-        input_shape = (args.screen_height, args.screen_width,
-                       args.history_length)
+        input_shape = (args.history_length, args.screen_height,
+                       args.screen_width)
         approximator_params = dict(
             input_shape=input_shape,
             output_shape=(mdp.info.action_space.n,),
@@ -251,8 +251,8 @@ def experiment():
             pi = WeightedPolicy(args.n_approximators)
 
         # Approximator
-        input_shape = (args.screen_height, args.screen_width,
-                       args.history_length)
+        input_shape = (args.history_length, args.screen_height,
+                       args.screen_width)
         approximator_params = dict(
             input_shape=input_shape,
             output_shape=(mdp.info.action_space.n,),
