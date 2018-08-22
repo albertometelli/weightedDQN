@@ -74,6 +74,8 @@ def experiment():
                          help='Upper bound for initializing the heads of the network')
     arg_alg.add_argument("--q-min", type=float, default=0,
                          help='Lower bound for initializing the heads of the network')
+    arg_alg.add_argument("--init-type", choices=['boot', 'linspace'], default='boot',
+                         help='Type of initialization for the network')
     arg_alg.add_argument("--batch-size", type=int, default=32,
                          help='Batch size for each fit of the network.')
     arg_alg.add_argument("--history-length", type=int, default=4,

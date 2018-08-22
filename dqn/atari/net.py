@@ -147,21 +147,26 @@ class ConvNet:
             self.n_approximators = convnet_pars['n_approximators']
             self.q_min = convnet_pars['q_min']
             self.q_max = convnet_pars['q_max']
+            self.init_type = convnet_pars['init_type']
 
-            initial_values = np.linspace(self.q_min, self.q_max, self.n_approximators)
+            if self.init_type == 'boot':
+                kernel_initializer = lambda _: tf.glorot_uniform_initializer()
+            else:
+                initial_values = np.linspace(self.q_min, self.q_max, self.n_approximators)
+                kernel_initializer = lambda i: tf.constant_initializer(initial_values[i])
 
             for i in range(self.n_approximators):
                 
                 with tf.variable_scope('head_' + str(i)):
                     self._features.append(tf.layers.dense(
                         identity, 512, activation=tf.nn.relu,
-                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        kernel_initializer=kernel_initializer(i),
                         name='_features_' + str(i)
                     ))
                     self._q.append(tf.layers.dense(
                         self._features[i],
                         convnet_pars['output_shape'][0],
-                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        kernel_initializer=kernel_initializer(i),
                         name='q_' + str(i)
                     ))
                     self._q_acted.append(
