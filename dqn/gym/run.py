@@ -14,7 +14,7 @@ from mushroom.utils.parameters import LinearDecayParameter, Parameter
 
 sys.path.append('..')
 sys.path.append('../..')
-from dqn import DoubleDQN
+from particle_dqn import ParticleDQN
 from policy import BootPolicy, WeightedPolicy
 from net import SimpleNet
 
@@ -82,8 +82,6 @@ def experiment(policy, name, folder_name):
                               "Averaged DQN.")
     arg_alg.add_argument("--batch-size", type=int, default=100,
                          help='Batch size for each fit of the network.')
-    arg_alg.add_argument("--history-length", type=int, default=1,
-                         help='Number of frames composing a state.')
     arg_alg.add_argument("--target-update-frequency", type=int, default=100,
                          help='Number of collected samples before each update'
                               'of the target network.')
@@ -107,13 +105,6 @@ def experiment(policy, name, folder_name):
                          help='Exploration rate used during evaluation.')
     arg_alg.add_argument("--test-samples", type=int, default=1000,
                          help='Number of steps for each evaluation.')
-    arg_alg.add_argument("--max-no-op-actions", type=int, default=0,
-                         help='Maximum number of no-op action performed at the'
-                              'beginning of the episodes. The minimum number is'
-                              'history_length.')
-    arg_alg.add_argument("--no-op-action-value", type=int, default=0,
-                         help='Value of the no-op action.')
-    arg_alg.add_argument("--p-mask", type=float, default=1.)
 
     arg_utils = parser.add_argument_group('Utils')
     arg_utils.add_argument('--load-path', type=str,
@@ -150,7 +141,7 @@ def experiment(policy, name, folder_name):
         pi = BootPolicy(args.n_approximators, epsilon=epsilon_test)
 
         # Approximator
-        input_shape = mdp.info.observation_space.shape + (args.history_length,)
+        input_shape = mdp.info.observation_space.shape + (1,)
         input_preprocessor = list()
         approximator_params = dict(
             input_shape=input_shape,
@@ -175,17 +166,13 @@ def experiment(policy, name, folder_name):
             batch_size=0,
             initial_replay_size=0,
             max_replay_size=0,
-            history_length=1,
             clip_reward=False,
             n_approximators=args.n_approximators,
             train_frequency=1,
             target_update_frequency=1,
-            max_no_op_actions=args.max_no_op_actions,
-            no_op_action_value=args.no_op_action_value,
-            p_mask=args.p_mask, 
             weighted_update=args.weighted_update
         )
-        agent = DoubleDQN(approximator, pi, mdp.info,
+        agent = ParticleDQN(approximator, pi, mdp.info,
                           approximator_params=approximator_params,
                           **algorithm_params)
 
@@ -244,7 +231,7 @@ def experiment(policy, name, folder_name):
             raise ValueError
 
         # Approximator
-        input_shape = mdp.info.observation_space.shape + (args.history_length,)
+        input_shape = mdp.info.observation_space.shape + (1,)
         input_preprocessor = list()
         approximator_params = dict(
             input_shape=input_shape,
@@ -268,18 +255,14 @@ def experiment(policy, name, folder_name):
             batch_size=args.batch_size,
             initial_replay_size=initial_replay_size,
             max_replay_size=max_replay_size,
-            history_length=args.history_length,
             clip_reward=False,
             n_approximators=args.n_approximators,
             train_frequency=train_frequency,
             target_update_frequency=target_update_frequency,
-            max_no_op_actions=args.max_no_op_actions,
-            no_op_action_value=args.no_op_action_value,
-            p_mask=args.p_mask, 
             weighted_update=args.weighted_update
         )
 
-        agent = DoubleDQN(approximator, pi, mdp.info,
+        agent = ParticleDQN(approximator, pi, mdp.info,
                           approximator_params=approximator_params,
                           **algorithm_params)
 

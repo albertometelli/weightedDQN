@@ -38,10 +38,12 @@ class ConvNet:
         if idx is not None:
             return self._session.run(self._q[idx], feed_dict={self._x: s})
         else:
+            s=np.transpose(s, [0,  2, 3, 1])
             return np.array(
                 [self._session.run(self._q, feed_dict={self._x: s})])
 
     def fit(self, s, a, q, mask):
+        s=np.transpose(s, [0,  2, 3, 1])
         summaries, _ = self._session.run(
             [self._merged, self._train_step],
             feed_dict={self._x: s,
