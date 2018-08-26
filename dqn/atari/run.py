@@ -4,7 +4,7 @@ import sys
 import numpy as np
 sys.path.append('..')
 sys.path.append('../..')
-
+import time
 from joblib import Parallel, delayed
 
 
@@ -148,7 +148,8 @@ def experiment():
         return score
 
     scores = list()
-
+    #add timestamp to results
+    ts=str(time.time())
     # Evaluation of the model provided by the user.
     if args.load_path:
         mdp = Atari(args.name, args.screen_width, args.screen_height,
@@ -212,7 +213,7 @@ def experiment():
         policy_name = 'weighted' if args.weighted else 'vpi'
         update_rule = 'weighted_update' if args.weighted_update else 'max_mean_update'
         # Summary folder
-        folder_name = './logs/' + policy_name + '/' +update_rule+'/'+ args.name+"/"+args.loss+"/"+str(args.n_approximators)+"_particles"
+        folder_name = './logs/' + policy_name + '/' +update_rule+'/'+ args.name+"/"+args.loss+"/"+str(args.n_approximators)+"_particles"+"/"+args.init_type+"_init"
 
         # Settings
         if args.debug:
@@ -305,7 +306,7 @@ def experiment():
                                 quiet=args.quiet)
         scores.append(get_stats(dataset))
 
-        np.save(folder_name + '/scores.npy', scores)
+        np.save(folder_name + '/scores_'+ts+'.npy', scores)
         for n_epoch in range(1, max_steps // evaluation_frequency + 1):
             print_epoch(n_epoch)
             print('- Learning:')
@@ -328,7 +329,7 @@ def experiment():
                                     quiet=args.quiet)
             scores.append(get_stats(dataset))
 
-            np.save(folder_name + '/scores.npy', scores)
+            np.save(folder_name + '/scores_'+ts+'.npy', scores)
 
     return scores
 
