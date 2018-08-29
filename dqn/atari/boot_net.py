@@ -8,10 +8,8 @@ class ConvNet:
         self._name = name
         self._folder_name = folder_name
 
-        config = tf.ConfigProto()
-        config.gpu_options.allow_growth = True
+        self._session = tf.Session()
 
-        self._session = tf.Session(config=config)
         if load_path is not None:
             self._load(load_path, convnet_pars)
         else:
@@ -146,29 +144,17 @@ class ConvNet:
             self._features = list()
             self._q = list()
             self._q_acted = list()
-            self.n_approximators = convnet_pars['n_approximators']
-            self.q_min = convnet_pars['q_min']
-            self.q_max = convnet_pars['q_max']
-            self.init_type = convnet_pars['init_type']
-
-            if self.init_type == 'boot':
-                kernel_initializer = lambda _: tf.glorot_uniform_initializer()
-            else:
-                initial_values = np.linspace(self.q_min, self.q_max, self.n_approximators)
-                kernel_initializer = lambda i: tf.constant_initializer(initial_values[i])
-
-            for i in range(self.n_approximators):
-                
+            for i in range(convnet_pars['n_approximators']):
                 with tf.variable_scope('head_' + str(i)):
                     self._features.append(tf.layers.dense(
                         identity, 512, activation=tf.nn.relu,
-                        kernel_initializer=kernel_initializer(i),
+                        kernel_initializer=tf.glorot_uniform_initializer(),
                         name='_features_' + str(i)
                     ))
                     self._q.append(tf.layers.dense(
                         self._features[i],
                         convnet_pars['output_shape'][0],
-                        kernel_initializer=kernel_initializer(i),
+                        kernel_initializer=tf.glorot_uniform_initializer(),
                         name='q_' + str(i)
                     ))
                     self._q_acted.append(
@@ -177,30 +163,18 @@ class ConvNet:
                                       name='q_acted_' + str(i))
                     )
 
-            self._q_acted = tf.transpose(self._q_acted)
-
             self._target_q = tf.placeholder(
                 'float32',
                 [None, convnet_pars['n_approximators']],
                 name='target_q'
             )
-
-            self._q_acted_sorted = tf.contrib.framework.sort(self._q_acted, axis=1)
-            self._target_q_sorted = tf.contrib.framework.sort(self._target_q, axis=1)
-
             loss = 0.
-            if convnet_pars["loss"] == "huber_loss":
-                self.loss_fuction = tf.losses.huber_loss
-            else:
-                self.loss_fuction = tf.losses.mean_squared_error
-
             for i in range(convnet_pars['n_approximators']):
-                loss += self.loss_fuction(
-                    self._target_q_sorted[:, i],
-                    self._q_acted_sorted[:, i]
+                loss += tf.losses.huber_loss(
+                    self._mask[:, i] * self._target_q[:, i],
+                    self._mask[:, i] * self._q_acted[i]
                 )
-
-            tf.summary.scalar(convnet_pars["loss"], loss)
+            tf.summary.scalar('huber_loss', loss)
             tf.summary.scalar('average_q', tf.reduce_mean(self._q))
             self._merged = tf.summary.merge(
                 tf.get_collection(tf.GraphKeys.SUMMARIES,
@@ -275,4 +249,4 @@ class ConvNet:
         self._target_q = tf.get_collection(self._scope_name + '_target_q')[0]
         self._merged = tf.get_collection(self._scope_name + '_merged')[0]
         self._train_step = tf.get_collection(
-            self._scope_name + '_train_step')[0]
+self._scope_name + '_train_step')[0]
