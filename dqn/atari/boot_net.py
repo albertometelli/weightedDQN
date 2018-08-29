@@ -7,8 +7,10 @@ class ConvNet:
                  **convnet_pars):
         self._name = name
         self._folder_name = folder_name
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
 
-        self._session = tf.Session()
+        self._session = tf.Session(config=config)
 
         if load_path is not None:
             self._load(load_path, convnet_pars)
