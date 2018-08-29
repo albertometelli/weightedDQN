@@ -192,14 +192,10 @@ def experiment():
             n_approximators=args.n_approximators,
             name='test',
             load_path=args.load_path,
-            q_min=args.q_min, 
-            q_max=args.q_max,
-            init_type=args.init_type,
             optimizer={'name': args.optimizer,
                        'lr': args.learning_rate,
                        'decay': args.decay,
                        'epsilon': args.epsilon},
-            loss=args.loss
         )
 
         approximator = ConvNet
@@ -213,10 +209,16 @@ def experiment():
             train_frequency=args.train_frequency,
             n_approximators=args.n_approximators,
             target_update_frequency=args.target_update_frequency,
-            weighted_update=args.weighted_update
         )
         if args.boot:
             algorithm_params['p_mask']=args.p_mask
+        else:
+            algorithm_params['weighted_update']=args.weighted_update
+            approximator_params['q_min']=args.q_min
+            approximator_params['q_max']=args.q_max
+            approximator_params['loss']=args.loss
+            approximator_params['init_type']=args.init_type
+            
         agent = agent_algorithm(approximator, pi, mdp.info,
                           approximator_params=approximator_params,
                           **algorithm_params)
@@ -286,10 +288,6 @@ def experiment():
             n_actions=mdp.info.action_space.n,
             n_approximators=args.n_approximators,
             folder_name=folder_name,
-            q_min=args.q_min, 
-            q_max=args.q_max,
-            init_type=args.init_type,
-            loss=args.loss, 
             optimizer={'name': args.optimizer,
                        'lr': args.learning_rate,
                        'decay': args.decay,
@@ -306,11 +304,17 @@ def experiment():
             clip_reward=True,
             train_frequency=args.train_frequency,
             n_approximators=args.n_approximators,
-            target_update_frequency=target_update_frequency,
-            weighted_update=args.weighted_update
+            target_update_frequency=target_update_frequency
             )
         if args.boot:
             algorithm_params['p_mask']=args.p_mask
+        else:
+            algorithm_params['weighted_update']=args.weighted_update
+            approximator_params['q_min']=args.q_min
+            approximator_params['q_max']=args.q_max
+            approximator_params['loss']=args.loss
+            approximator_params['init_type']=args.init_type
+        
         agent = agent_algorithm(approximator, pi, mdp.info,
                           approximator_params=approximator_params,
                           **algorithm_params)
