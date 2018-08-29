@@ -83,10 +83,10 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 
     # MDP
     if name == 'Taxi':
-        mdp = generate_taxi('../grid.txt', horizon=1000)
-        max_steps = 100000
-        evaluation_frequency = 1000
-        test_samples = 1000
+        mdp = generate_taxi('../grid.txt', horizon=5000)
+        max_steps = 500000
+        evaluation_frequency = 5000
+        test_samples = 5000
     elif name == 'Chain':
         mdp = generate_chain(horizon=100)
         max_steps = 100000
@@ -108,10 +108,10 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         evaluation_frequency = 1000
         test_samples = 1000
     elif name == 'KnightQuest':
-        mdp = Gym('KnightQuest-v0', gamma=0.99, horizon=100)
-        max_steps = 100000
-        evaluation_frequency = 1000
-        test_samples = 1000
+        mdp = Gym('KnightQuest-v0', gamma=0.99, horizon=10000)
+        max_steps = 500000
+        evaluation_frequency = 5000
+        test_samples = 5000
     else:
         raise NotImplementedError
 
@@ -268,7 +268,7 @@ if __name__ == '__main__':
                           choices=['weighted', 'vpi', 'boot', 'boltzmann', 'eps-greedy'],
                           default='weighted',
                           help='Kind of policy to use (not all available for all).')
-    arg_alg.add_argument("--n-approximators", type=int, default=10,
+    arg_alg.add_argument("--n-approximators", type=int, default=20,
                          help="Number of approximators used in the ensemble.")
     arg_alg.add_argument("--q-max", type=float, default=40,
                          help='Upper bound for initializing the heads of the network (only ParticleQLearning).')
