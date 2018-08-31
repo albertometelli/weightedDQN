@@ -23,7 +23,7 @@ class Particle(TD):
 
     def _update(self, state, action, reward, next_state, absorbing):
         raise NotImplementedError
-
+    
 
 class ParticleQLearning(Particle):
 

@@ -11,7 +11,7 @@ from distutils.util import strtobool
 from mushroom.core import Core
 from mushroom.environments.generators.taxi import generate_taxi
 from mushroom.environments.gym_env import Gym
-from mushroom.utils.callbacks import CollectDataset, CollectQ
+from mushroom.utils.callbacks import CollectDataset
 from mushroom.utils.dataset import parse_dataset
 from mushroom.utils.parameters import ExponentialDecayParameter, Parameter
 from mushroom.policy.td_policy import EpsGreedy, Boltzmann
@@ -23,12 +23,11 @@ from particle_q_learning import ParticleQLearning, ParticleDoubleQLearning
 sys.path.append('..')
 from policy import BootPolicy, WeightedPolicy, VPIPolicy
 from envs.knight_quest import KnightQuest
-
 from envs.chain import generate_chain
 from envs.loop import generate_loop
 from envs.river_swim import generate_river
 from envs.six_arms import generate_arms
-
+from utils.callbacks import CollectQs
 policy_dict = {'eps-greedy': EpsGreedy,
                'boltzmann': Boltzmann,
                'weighted': WeightedPolicy,
@@ -174,7 +173,8 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 
     # Algorithm
     collect_dataset = CollectDataset()
-    callbacks = [collect_dataset]
+    collect_qs=CollectQs(agent.approximator)
+    callbacks = [collect_dataset, collect_qs]
     core = Core(agent, mdp, callbacks)
 
     train_scores = []
@@ -206,8 +206,8 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         scores = compute_scores(dataset, mdp.info.gamma)
         #print('Evaluation: ', scores)
         test_scores.append(scores)
-
-    return train_scores, test_scores
+    qs=collect_dataset.get()
+    return train_scores, test_scores,  qs
 
 if __name__ == '__main__':
 
@@ -279,7 +279,7 @@ if __name__ == '__main__':
     arg_alg.add_argument("--double", type=str, default='',
                          help='Whether to use double.')
     arg_run = parser.add_argument_group('Run')
-    arg_run.add_argument("--n-experiments", type=int, default=1,
+    arg_run.add_argument("--n-experiments", type=int, default=10,
                          help='Number of experiments to execute.')
     arg_run.add_argument("--dir", type=str, default='./data',
                          help='Directory where to save data.')
@@ -304,10 +304,13 @@ if __name__ == '__main__':
                         print('Env: %s - Alg: %s - Policy: %s - Update: %s - Double: %s' % (env, alg, policy, update_type, double))
                         qs = env_to_qs[env]
                         fun_args = [alg, env, args.update_mode, update_type, policy, args.n_approximators, qs[1], qs[0], args.lr_exp, double]
-                        out = Parallel(n_jobs=affinity)(delayed(experiment)(*(fun_args + [args.seed+i])) for i in range(n_experiment))
+                        out, q = Parallel(n_jobs=affinity)(delayed(experiment)(*(fun_args + [args.seed+i])) for i in range(n_experiment))
                         out_dir = args.dir + '/' + env + '/' + alg
                         if not os.path.exists(out_dir):
                             os.makedirs(out_dir)
                         file_name = 'results_%s_%s_%s_%s_double=%s_%s' % (policy, '1' if args.algorithm == 'ql' else args.n_approximators,
                                              '' if alg != 'particle-ql' else update_type, args.lr_exp, double, time.time())
                         np.save(out_dir + '/' + file_name, out)
+                        file_name = 'qs%s_%s_%s_%s_double=%s_%s' % (policy, '1' if args.algorithm == 'ql' else args.n_approximators,
+                                             '' if alg != 'particle-ql' else update_type, args.lr_exp, double, time.time())
+                        np.save(out_dir + '/qs/' + file_name, q)
