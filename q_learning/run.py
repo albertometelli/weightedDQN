@@ -212,7 +212,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         qs=collect_qs_callback.get_values()
         if not os.path.exists(out_dir):
                             os.makedirs(out_dir)
-        np.save(out_dir + '/qs/' + file_name, qs)
+        np.save(out_dir + '/' + file_name, qs)
     return train_scores, test_scores
 
 if __name__ == '__main__':
