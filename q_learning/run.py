@@ -76,7 +76,7 @@ def compute_scores(dataset, gamma):
         return len(dataset), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 
-def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min, lr_exp, double, seed):
+def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min, lr_exp, double,file_name, out_dir,collect_qs,  seed):
     set_global_seeds(seed)
     print('Using seed %s' % seed)
 
@@ -173,8 +173,10 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 
     # Algorithm
     collect_dataset = CollectDataset()
-    collect_qs=CollectQs(agent.approximator)
-    callbacks = [collect_dataset, collect_qs]
+    collect_qs_callback=CollectQs(agent.approximator)
+    callbacks = [collect_dataset]
+    if collect_qs:
+        callbacks +=[collect_qs_callback]
     core = Core(agent, mdp, callbacks)
 
     train_scores = []
@@ -206,8 +208,12 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         scores = compute_scores(dataset, mdp.info.gamma)
         #print('Evaluation: ', scores)
         test_scores.append(scores)
-    qs=collect_dataset.get()
-    return train_scores, test_scores,  qs
+    if collect_qs:
+        qs=collect_qs_callback.get_values()
+        if not os.path.exists(out_dir):
+                            os.makedirs(out_dir)
+        np.save(out_dir + '/qs/' + file_name, qs)
+    return train_scores, test_scores
 
 if __name__ == '__main__':
 
@@ -285,7 +291,8 @@ if __name__ == '__main__':
                          help='Directory where to save data.')
     arg_run.add_argument("--seed", type=int, default=0,
                          help='Seed.')
-
+    arg_run.add_argument("--collect-qs", action='store_true')
+    
     args = parser.parse_args()
     n_experiment = args.n_experiments
     
@@ -308,14 +315,15 @@ if __name__ == '__main__':
                     for double in double_vec:
                         print('Env: %s - Alg: %s - Policy: %s - Update: %s - Double: %s' % (env, alg, policy, update_type, double))
                         qs = env_to_qs[env]
-                        fun_args = [alg, env, args.update_mode, update_type, policy, args.n_approximators, qs[1], qs[0], args.lr_exp, double]
-                        out, q = Parallel(n_jobs=affinity)(delayed(experiment)(*(fun_args + [args.seed+i])) for i in range(n_experiment))
+                        file_name = 'qs_%s_%s_%s_%s_double=%s_%s' % (policy, '1' if args.algorithm == 'ql' else args.n_approximators,
+                                             '' if alg != 'particle-ql' else update_type, args.lr_exp, double, time.time())
                         out_dir = args.dir + '/' + env + '/' + alg
+                        fun_args = [alg, env, args.update_mode, update_type, policy, args.n_approximators, qs[1], qs[0], args.lr_exp, double, file_name, out_dir]
+                        out= Parallel(n_jobs=affinity)(delayed(experiment)(*(fun_args + [args.collect_qs if i==0 else False, args.seed+i])) for i in range(n_experiment))
+                        
                         if not os.path.exists(out_dir):
                             os.makedirs(out_dir)
                         file_name = 'results_%s_%s_%s_%s_double=%s_%s' % (policy, '1' if args.algorithm == 'ql' else args.n_approximators,
                                              '' if alg != 'particle-ql' else update_type, args.lr_exp, double, time.time())
                         np.save(out_dir + '/' + file_name, out)
-                        file_name = 'qs%s_%s_%s_%s_double=%s_%s' % (policy, '1' if args.algorithm == 'ql' else args.n_approximators,
-                                             '' if alg != 'particle-ql' else update_type, args.lr_exp, double, time.time())
-                        np.save(out_dir + '/qs/' + file_name, q)
+                        
