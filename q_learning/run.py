@@ -262,11 +262,11 @@ if __name__ == '__main__':
                           help='Whether to perform randomized or deterministic target update (only ParticleQLearning).')
     arg_alg.add_argument("--update-type",
                           choices=['mean', 'distributional', 'weighted'],
-                          default='weighted',
+                          default='',
                           help='Kind of update to perform (only ParticleQLearning).')
     arg_alg.add_argument("--policy",
                           choices=['weighted', 'vpi', 'boot', 'boltzmann', 'eps-greedy'],
-                          default='weighted',
+                          default='',
                           help='Kind of policy to use (not all available for all).')
     arg_alg.add_argument("--n-approximators", type=int, default=20,
                          help="Number of approximators used in the ensemble.")
@@ -294,6 +294,11 @@ if __name__ == '__main__':
         envs = [args.name]
     if args.algorithm != '':
         algorithms = [args.algorithm]
+        if args.policy!='' and args.policy in alg_to_policies[args.algorithm]:
+            alg_to_policies[args.algorithm]=[args.policy]
+        if args.update_type!='' and args.update_type in alg_to_update_types[args.algorithm]:
+            alg_to_update_types[args.algorithm]=[args.update_type]
+            
     if args.double != '':
         double_vec = [bool(strtobool(args.double))]
     for env in envs:
