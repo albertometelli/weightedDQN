@@ -39,6 +39,14 @@ class ParticleDQN(Agent):
             self.approximator.model.get_weights())
 
         super(ParticleDQN, self).__init__(policy, mdp_info)
+    
+    @staticmethod
+    def _compute_prob_max(q_list):
+        q_array = np.array(q_list).T
+        score = (q_array[:, :, None, None] >= q_array).astype(int)
+        prob = score.sum(axis=3).prod(axis=2).sum(axis=1)
+        prob = prob.astype(np.float32)
+        return prob / np.sum(prob)
 
     def fit(self, dataset):
         
@@ -95,13 +103,10 @@ class ParticleDQN(Agent):
             for i in range(q.shape[1]):
                 max_q[i, :]=q[:, i, best_actions[i]]
         else:
-            for i in range(q.shape[1]):
-                samples = np.ones(q.shape[2])
-                for a in range(q.shape[2]):
-                    idx = np.random.randint(q.shape[2])
-                    samples[a] = q[idx, i, a]
-                max_a = np.asscalar(np.random.choice(np.argwhere(samples == np.max(samples)).ravel()))
-                max_q[i, :] = q[:, i, max_a]
+            for i in range(q.shape[1]): #for each batch 
+                particles=q[:,i,:]
+                prob=ParticleDQN._compute_prob_max(particles)
+                max_q[i,:]=np.dot(particles,prob)
 
         return max_q
 
