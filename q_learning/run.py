@@ -108,9 +108,9 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         test_samples = 1000
     elif name == 'KnightQuest':
         mdp = Gym('KnightQuest-v0', gamma=0.99, horizon=10000)
-        max_steps = 500000
-        evaluation_frequency = 5000
-        test_samples = 5000
+        max_steps = 100000
+        evaluation_frequency = 1000
+        test_samples = 1000
     else:
         raise NotImplementedError
 
