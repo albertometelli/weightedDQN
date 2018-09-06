@@ -17,7 +17,6 @@ from mushroom.utils.parameters import ExponentialDecayParameter, Parameter
 from mushroom.policy.td_policy import EpsGreedy, Boltzmann
 from mushroom.algorithms.value.td import QLearning, DoubleQLearning
 from mushroom.utils.table import Table
-
 from boot_q_learning import BootstrappedQLearning,  BootstrappedDoubleQLearning
 from particle_q_learning import ParticleQLearning, ParticleDoubleQLearning
 sys.path.append('..')

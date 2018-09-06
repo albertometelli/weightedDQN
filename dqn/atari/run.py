@@ -5,8 +5,7 @@ import numpy as np
 sys.path.append('..')
 sys.path.append('../..')
 import time
-from joblib import Parallel, delayed
-
+import tf
 
 """
 This script can be used to run Atari experiments with DQN.
@@ -368,8 +367,5 @@ def experiment():
 
 
 if __name__ == '__main__':
-    n_experiments = 1
-
-    out = Parallel(n_jobs=-1)(
-        delayed(experiment)() for _ in range(n_experiments))
+    out = experiment()
     tf.reset_default_graph()
