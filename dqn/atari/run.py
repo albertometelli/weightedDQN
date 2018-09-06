@@ -5,7 +5,7 @@ import numpy as np
 sys.path.append('..')
 sys.path.append('../..')
 import time
-import tf
+import tensorflow as tf
 
 """
 This script can be used to run Atari experiments with DQN.
