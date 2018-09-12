@@ -84,6 +84,7 @@ class ConvNet:
 
     def _load(self, path, convnet_pars):
         self._scope_name = 'train/'
+        self._folder_name=path
         restorer = tf.train.import_meta_graph(
             path + '/' + self._scope_name[:-1] + '/' + self._scope_name[:-1] +
             '.meta')
