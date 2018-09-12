@@ -283,3 +283,4 @@ class ConvNet:
         self._mask=tf.placeholder(
                     tf.float32, shape=[None, convnet_pars['n_approximators']])
         #self._mask = tf.get_collection( self._scope_name + '_mask')[0]
+        self.train_count=0
