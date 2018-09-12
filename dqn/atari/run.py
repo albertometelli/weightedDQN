@@ -6,7 +6,7 @@ sys.path.append('..')
 sys.path.append('../..')
 import time
 import tensorflow as tf
-
+import glob
 """
 This script can be used to run Atari experiments with DQN.
 
@@ -71,7 +71,7 @@ def experiment():
                              choices=['squared_loss',
                                       'huber_loss',
                                      ],
-                         default='squared_loss',
+                         default='huber_loss',
                          help="Loss functions used in the approximator")
     arg_alg.add_argument("--q-max", type=float, default=300,
                          help='Upper bound for initializing the heads of the network')
@@ -117,6 +117,8 @@ def experiment():
                            help='Path of the model to be loaded.')
     arg_utils.add_argument('--save', action='store_true',
                            help='Flag specifying whether to save the model.')
+    arg_utils.add_argument('--evaluation', action='store_true',
+                           help='Flag specifying whether the model loaded will be evaluated.')
     arg_utils.add_argument('--render', action='store_true',
                            help='Flag specifying whether to render the game.')
     arg_utils.add_argument('--quiet', action='store_true',
@@ -165,7 +167,7 @@ def experiment():
     ts=str(time.time())
     # Evaluation of the model provided by the user.
     
-    if args.load_path:
+    if args.load_path and args.evaluation:
         mdp = Atari(args.name, args.screen_width, args.screen_height,
                     ends_at_life=False, history_length=args.history_length,
                     max_no_op_actions=args.max_no_op_actions)
@@ -292,7 +294,12 @@ def experiment():
                        'decay': args.decay,
                        'epsilon': args.epsilon}
         )
-
+        if args.load_path:
+            approximator_params['load_path']=args.load_path
+            paths = glob.glob("scores_*.npy")
+            for p in paths:
+                scores=np.load(p).tolist()
+            max_steps=max_steps-evaluation_frequency*len(scores)
         approximator = ConvNet
 
         # Agent
