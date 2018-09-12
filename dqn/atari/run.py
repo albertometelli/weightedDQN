@@ -296,6 +296,8 @@ def experiment():
         )
         if args.load_path:
             approximator_params['load_path']=args.load_path
+            approximator_params['folder_name']=args.load_path
+            folder_name=args.load_path
             paths = glob.glob("scores_*.npy")
             for p in paths:
                 scores=np.load(p).tolist()
