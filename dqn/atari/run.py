@@ -330,6 +330,7 @@ def experiment():
         # RUN
 
         # Fill replay memory with random dataset
+        
         print_epoch(0)
         core.learn(n_steps=initial_replay_size,
                    n_steps_per_fit=initial_replay_size, quiet=args.quiet)

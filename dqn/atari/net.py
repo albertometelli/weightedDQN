@@ -245,6 +245,7 @@ class ConvNet:
     def _add_collection(self):
         tf.add_to_collection(self._scope_name + '_x', self._x)
         tf.add_to_collection(self._scope_name + '_action', self._action)
+        
         for i in range(len(self._features)):
             tf.add_to_collection(self._scope_name + '_features_' + str(i),
                                  self._features[i])
@@ -254,6 +255,7 @@ class ConvNet:
         tf.add_to_collection(self._scope_name + '_target_q', self._target_q)
         tf.add_to_collection(self._scope_name + '_merged', self._merged)
         tf.add_to_collection(self._scope_name + '_train_step', self._train_step)
+        tf.add_to_collection(self._scope_name + '_mask', self._mask)
 
     def _restore_collection(self, convnet_pars):
         self._x = tf.get_collection(self._scope_name + '_x')[0]
@@ -276,3 +278,8 @@ class ConvNet:
         self._merged = tf.get_collection(self._scope_name + '_merged')[0]
         self._train_step = tf.get_collection(
             self._scope_name + '_train_step')[0]
+        
+        ##needs to be saved 
+        self._mask=tf.placeholder(
+                    tf.float32, shape=[None, convnet_pars['n_approximators']])
+        #self._mask = tf.get_collection( self._scope_name + '_mask')[0]
