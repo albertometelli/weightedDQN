@@ -35,10 +35,10 @@ class ConvNet:
                         self._w.append(w[i].assign(self._target_w[i]))
 
     def predict(self, s, idx=None):
+        s=np.transpose(s, [0,  2, 3, 1])
         if idx is not None:
             return self._session.run(self._q[idx], feed_dict={self._x: s})
         else:
-            s=np.transpose(s, [0,  2, 3, 1])
             return np.array(
                 [self._session.run(self._q, feed_dict={self._x: s})])
 
@@ -84,6 +84,7 @@ class ConvNet:
 
     def _load(self, path, convnet_pars):
         self._scope_name = 'train/'
+        self._folder_name=path
         restorer = tf.train.import_meta_graph(
             path + '/' + self._scope_name[:-1] + '/' + self._scope_name[:-1] +
             '.meta')
@@ -162,13 +163,14 @@ class ConvNet:
                 with tf.variable_scope('head_' + str(i)):
                     self._features.append(tf.layers.dense(
                         identity, 512, activation=tf.nn.relu,
-                        kernel_initializer=kernel_initializer(i),
+                        kernel_initializer=tf.glorot_uniform_initializer(),
                         name='_features_' + str(i)
                     ))
                     self._q.append(tf.layers.dense(
                         self._features[i],
                         convnet_pars['output_shape'][0],
-                        kernel_initializer=kernel_initializer(i),
+                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        bias_initializer=kernel_initializer(i),
                         name='q_' + str(i)
                     ))
                     self._q_acted.append(
@@ -245,6 +247,7 @@ class ConvNet:
     def _add_collection(self):
         tf.add_to_collection(self._scope_name + '_x', self._x)
         tf.add_to_collection(self._scope_name + '_action', self._action)
+        
         for i in range(len(self._features)):
             tf.add_to_collection(self._scope_name + '_features_' + str(i),
                                  self._features[i])
@@ -254,6 +257,7 @@ class ConvNet:
         tf.add_to_collection(self._scope_name + '_target_q', self._target_q)
         tf.add_to_collection(self._scope_name + '_merged', self._merged)
         tf.add_to_collection(self._scope_name + '_train_step', self._train_step)
+        tf.add_to_collection(self._scope_name + '_mask', self._mask)
 
     def _restore_collection(self, convnet_pars):
         self._x = tf.get_collection(self._scope_name + '_x')[0]
@@ -276,3 +280,9 @@ class ConvNet:
         self._merged = tf.get_collection(self._scope_name + '_merged')[0]
         self._train_step = tf.get_collection(
             self._scope_name + '_train_step')[0]
+        
+        ##needs to be saved 
+        self._mask=tf.placeholder(
+                    tf.float32, shape=[None, convnet_pars['n_approximators']])
+        #self._mask = tf.get_collection( self._scope_name + '_mask')[0]
+        self._train_count=0

@@ -4,10 +4,9 @@ import sys
 import numpy as np
 sys.path.append('..')
 sys.path.append('../..')
-
-from joblib import Parallel, delayed
-
-
+import time
+import tensorflow as tf
+import glob
 """
 This script can be used to run Atari experiments with DQN.
 
@@ -60,6 +59,10 @@ def experiment():
 
     arg_alg = parser.add_argument_group('Algorithm')
     arg_alg.add_argument("--weighted", action='store_true')
+    arg_alg.add_argument("--boot", action='store_true',
+                         help="Flag to use BootstrappedDQN.")
+    arg_alg.add_argument("--double", action='store_true',
+                         help="Flag to use the DoubleDQN version of the algorithm.")
     arg_alg.add_argument("--weighted-update", action='store_true')
     arg_alg.add_argument("--n-approximators", type=int, default=10,
                          help="Number of approximators used in the ensemble for"
@@ -68,7 +71,7 @@ def experiment():
                              choices=['squared_loss',
                                       'huber_loss',
                                      ],
-                         default='squared_loss',
+                         default='huber_loss',
                          help="Loss functions used in the approximator")
     arg_alg.add_argument("--q-max", type=float, default=300,
                          help='Upper bound for initializing the heads of the network')
@@ -107,12 +110,15 @@ def experiment():
                          help='Maximum number of no-op action performed at the'
                               'beginning of the episodes. The minimum number is'
                               'history_length.')
-
+    arg_alg.add_argument("--p-mask", type=float, default=1.)
+    
     arg_utils = parser.add_argument_group('Utils')
     arg_utils.add_argument('--load-path', type=str,
                            help='Path of the model to be loaded.')
     arg_utils.add_argument('--save', action='store_true',
                            help='Flag specifying whether to save the model.')
+    arg_utils.add_argument('--evaluation', action='store_true',
+                           help='Flag specifying whether the model loaded will be evaluated.')
     arg_utils.add_argument('--render', action='store_true',
                            help='Flag specifying whether to render the game.')
     arg_utils.add_argument('--quiet', action='store_true',
@@ -129,17 +135,26 @@ def experiment():
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
 
-    from particle_dqn import ParticleDQN
-    import tensorflow as tf
-
+    from particle_dqn import ParticleDQN, ParticleDoubleDQN
+    from bootstrapped_dqn import BootstrappedDoubleDQN, BootstrappedDQN
     from mushroom.core.core import Core
     from mushroom.environments import Atari
     from mushroom.utils.dataset import compute_scores
     from mushroom.utils.parameters import LinearDecayParameter, Parameter
 
     from policy import BootPolicy, WeightedPolicy, VPIPolicy
-    from net import ConvNet
-
+    if args.boot:
+        from boot_net import ConvNet
+        if args.double:
+            agent_algorithm=BootstrappedDoubleDQN
+        else:
+            agent_algorithm=BootstrappedDQN
+    else:
+        from net import ConvNet
+        if args.double:
+            agent_algorithm=ParticleDoubleDQN
+        else:
+            agent_algorithm=ParticleDQN
     def get_stats(dataset):
         score = compute_scores(dataset)
         print('min_reward: %f, max_reward: %f, mean_reward: %f,'
@@ -148,9 +163,11 @@ def experiment():
         return score
 
     scores = list()
-
+    #add timestamp to results
+    ts=str(time.time())
     # Evaluation of the model provided by the user.
-    if args.load_path:
+    
+    if args.load_path and args.evaluation:
         mdp = Atari(args.name, args.screen_width, args.screen_height,
                     ends_at_life=False, history_length=args.history_length,
                     max_no_op_actions=args.max_no_op_actions)
@@ -159,7 +176,13 @@ def experiment():
         # Policy
         epsilon_test = Parameter(value=args.test_exploration_rate)
 
-        pi = VPIPolicy(args.n_approximators, epsilon=epsilon_test)
+        if args.boot:
+            pi=BootPolicy(args.n_approximators, epsilon=epsilon_test)
+        else:
+            if not args.weighted:
+                pi = VPIPolicy(args.n_approximators, epsilon=epsilon_test)
+            else:
+                pi = WeightedPolicy(args.n_approximators, epsilon=epsilon_test)
 
         # Approximator
         input_shape = ( args.screen_height,args.screen_width, args.history_length)
@@ -170,14 +193,10 @@ def experiment():
             n_approximators=args.n_approximators,
             name='test',
             load_path=args.load_path,
-            q_min=args.q_min, 
-            q_max=args.q_max,
-            init_type=args.init_type,
             optimizer={'name': args.optimizer,
                        'lr': args.learning_rate,
                        'decay': args.decay,
                        'epsilon': args.epsilon},
-            loss=args.loss
         )
 
         approximator = ConvNet
@@ -191,9 +210,17 @@ def experiment():
             train_frequency=args.train_frequency,
             n_approximators=args.n_approximators,
             target_update_frequency=args.target_update_frequency,
-            weighted_update=args.weighted_update
         )
-        agent = ParticleDQN(approximator, pi, mdp.info,
+        if args.boot:
+            algorithm_params['p_mask']=args.p_mask
+        else:
+            algorithm_params['weighted_update']=args.weighted_update
+            approximator_params['q_min']=args.q_min
+            approximator_params['q_max']=args.q_max
+            approximator_params['loss']=args.loss
+            approximator_params['init_type']=args.init_type
+            
+        agent = agent_algorithm(approximator, pi, mdp.info,
                           approximator_params=approximator_params,
                           **algorithm_params)
         print(agent)
@@ -211,8 +238,11 @@ def experiment():
         print("Learning Run")
         policy_name = 'weighted' if args.weighted else 'vpi'
         update_rule = 'weighted_update' if args.weighted_update else 'max_mean_update'
+        if args.boot:
+            policy_name='boot'
+            update_rule='boot'
         # Summary folder
-        folder_name = './logs/' + policy_name + '/' +update_rule+'/'+ args.name+"/"+args.loss+"/"+str(args.n_approximators)+"_particles"
+        folder_name = './logs/' + policy_name + '/' +update_rule+'/'+ args.name+"/"+args.loss+"/"+str(args.n_approximators)+"_particles"+"/"+args.init_type+"_init"+"/"+ts
 
         # Settings
         if args.debug:
@@ -243,11 +273,13 @@ def experiment():
                                        n=args.final_exploration_frame)
         epsilon_test = Parameter(value=args.test_exploration_rate)
         epsilon_random = Parameter(value=1.)
-
-        if not args.weighted:
-            pi = VPIPolicy(args.n_approximators)
+        if args.boot:
+            pi=BootPolicy(args.n_approximators)
         else:
-            pi = WeightedPolicy(args.n_approximators)
+            if not args.weighted:
+                pi = VPIPolicy(args.n_approximators)
+            else:
+                pi = WeightedPolicy(args.n_approximators)
 
         # Approximator
         input_shape = ( args.screen_height,args.screen_width, args.history_length)
@@ -257,16 +289,19 @@ def experiment():
             n_actions=mdp.info.action_space.n,
             n_approximators=args.n_approximators,
             folder_name=folder_name,
-            q_min=args.q_min, 
-            q_max=args.q_max,
-            init_type=args.init_type,
-            loss=args.loss, 
             optimizer={'name': args.optimizer,
                        'lr': args.learning_rate,
                        'decay': args.decay,
                        'epsilon': args.epsilon}
         )
-
+        if args.load_path:
+            approximator_params['load_path']=args.load_path
+            approximator_params['folder_name']=args.load_path
+            folder_name=args.load_path
+            paths = glob.glob("scores_*.npy")
+            for p in paths:
+                scores=np.load(p).tolist()
+            max_steps=max_steps-evaluation_frequency*len(scores)
         approximator = ConvNet
 
         # Agent
@@ -277,11 +312,18 @@ def experiment():
             clip_reward=True,
             train_frequency=args.train_frequency,
             n_approximators=args.n_approximators,
-            target_update_frequency=target_update_frequency,
-            weighted_update=args.weighted_update
+            target_update_frequency=target_update_frequency
             )
-
-        agent = ParticleDQN(approximator, pi, mdp.info,
+        if args.boot:
+            algorithm_params['p_mask']=args.p_mask
+        else:
+            algorithm_params['weighted_update']=args.weighted_update
+            approximator_params['q_min']=args.q_min
+            approximator_params['q_max']=args.q_max
+            approximator_params['loss']=args.loss
+            approximator_params['init_type']=args.init_type
+        
+        agent = agent_algorithm(approximator, pi, mdp.info,
                           approximator_params=approximator_params,
                           **algorithm_params)
         # Algorithm
@@ -290,6 +332,7 @@ def experiment():
         # RUN
 
         # Fill replay memory with random dataset
+        
         print_epoch(0)
         core.learn(n_steps=initial_replay_size,
                    n_steps_per_fit=initial_replay_size, quiet=args.quiet)
@@ -305,7 +348,7 @@ def experiment():
                                 quiet=args.quiet)
         scores.append(get_stats(dataset))
 
-        np.save(folder_name + '/scores.npy', scores)
+        np.save(folder_name + '/scores_'+ts+'.npy', scores)
         for n_epoch in range(1, max_steps // evaluation_frequency + 1):
             print_epoch(n_epoch)
             print('- Learning:')
@@ -328,14 +371,11 @@ def experiment():
                                     quiet=args.quiet)
             scores.append(get_stats(dataset))
 
-            np.save(folder_name + '/scores.npy', scores)
+            np.save(folder_name + '/scores_'+ts+'.npy', scores)
 
     return scores
 
 
 if __name__ == '__main__':
-    n_experiments = 1
-
-    out = Parallel(n_jobs=-1)(
-        delayed(experiment)() for _ in range(n_experiments))
+    out = experiment()
     tf.reset_default_graph()

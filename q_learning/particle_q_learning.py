@@ -23,7 +23,7 @@ class Particle(TD):
 
     def _update(self, state, action, reward, next_state, absorbing):
         raise NotImplementedError
-
+    
 
 class ParticleQLearning(Particle):
 
@@ -32,6 +32,7 @@ class ParticleQLearning(Particle):
         q_array = np.array(q_list).T
         score = (q_array[:, :, None, None] >= q_array).astype(int)
         prob = score.sum(axis=3).prod(axis=2).sum(axis=1)
+        prob = prob.astype(np.float32)
         return prob / np.sum(prob)
 
     @staticmethod
