@@ -94,14 +94,16 @@ class ParticleDQN(Agent):
             best_actions = np.argmax(np.mean(q, axis=0), axis=1)
             for i in range(q.shape[1]):
                 max_q[i, :]=q[:, i, best_actions[i]]
+        '''
         else:
             for i in range(q.shape[1]):
                 samples = np.ones(q.shape[2])
                 for a in range(q.shape[2]):
-                    idx = np.random.randint(q.shape[2])
+                    idx = np.random.randint(q.shape[0])
                     samples[a] = q[idx, i, a]
                 max_a = np.asscalar(np.random.choice(np.argwhere(samples == np.max(samples)).ravel()))
                 max_q[i, :] = q[:, i, max_a]
+        '''
 
         return max_q
 
