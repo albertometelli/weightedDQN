@@ -7,12 +7,13 @@ from mushroom.utils.table import EnsembleTable
 
 class Particle(TD):
     def __init__(self, policy, mdp_info, learning_rate, n_approximators=10, update_mode='deterministic',
-                 update_type='weighted', q_min=0, q_max=1):
+                 update_type='weighted', q_min=0, q_max=1,init_values=None):
         self._n_approximators = n_approximators
         self._update_mode = update_mode
         self._update_type = update_type
         self.Q = EnsembleTable(self._n_approximators, mdp_info.size)
-        init_values = np.linspace(q_min, q_max, n_approximators)
+        if init_values is None:
+            init_values = np.linspace(q_min, q_max, n_approximators)
         for i in range(len(self.Q.model)):
             self.Q.model[i].table = np.tile([init_values[i]], self.Q[i].shape)
 

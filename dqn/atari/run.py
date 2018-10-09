@@ -295,12 +295,12 @@ def experiment():
                        'epsilon': args.epsilon}
         )
         if args.load_path:
+            ts=os.path.basename(os.path.normpath(args.load_path))
             approximator_params['load_path']=args.load_path
             approximator_params['folder_name']=args.load_path
             folder_name=args.load_path
-            paths = glob.glob("scores_*.npy")
-            for p in paths:
-                scores=np.load(p).tolist()
+            p = "scores_"+ts+".npy"
+            scores=np.load(p).tolist()
             max_steps=max_steps-evaluation_frequency*len(scores)
         approximator = ConvNet
 
