@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="c1e64d11-33c8-4288-898a-c7f5b20dfe3e" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/q_learning/test_scripts/init_variations.py" beforeDir="false" afterPath="$PROJECT_DIR$/q_learning/test_scripts/init_variations.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/q_learning/test_scripts/river_swim/particle-ql/.ipynb_checkpoints/notebook-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/q_learning/test_scripts/river_swim/particle-ql/.ipynb_checkpoints/notebook-checkpoint.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/q_learning/test_scripts/river_swim/particle-ql/graphs/RiverSwim-particle-ql-vpi-mean.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/q_learning/test_scripts/river_swim/particle-ql/graphs/RiverSwim-particle-ql-vpi-mean.pdf" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/q_learning/test_scripts/river_swim/particle-ql/notebook.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/q_learning/test_scripts/river_swim/particle-ql/notebook.ipynb" afterDir="false" />
-    </list>
+    <list default="true" id="c1e64d11-33c8-4288-898a-c7f5b20dfe3e" name="Default" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,8 +70,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/q_learning/test_scripts/init_variations.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="344">
-              <caret line="92" column="107" selection-start-line="92" selection-start-column="107" selection-end-line="92" selection-end-column="107" />
+            <state relative-caret-position="236">
+              <caret line="299" column="61" selection-start-line="299" selection-start-column="61" selection-end-line="299" selection-end-column="61" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -434,8 +429,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/q_learning/test_scripts/init_variations.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="344">
-          <caret line="92" column="107" selection-start-line="92" selection-start-column="107" selection-end-line="92" selection-end-column="107" />
+        <state relative-caret-position="236">
+          <caret line="299" column="61" selection-start-line="299" selection-start-column="61" selection-end-line="299" selection-end-column="61" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>

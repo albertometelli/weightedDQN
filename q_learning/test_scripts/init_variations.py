@@ -297,7 +297,7 @@ if __name__ == '__main__':
                             print('Env: %s - Alg: %s - Policy: %s - Update: %s' % (
                             env, alg, policy, update_type))
                             qs = env_to_qs[env]
-                            file_name = 'qs_%s_%s_%s_%s_%s_%s_%s' % (
+                            file_name = 'qs_%s_%s_%s_%s_%s_%s' % (
                             policy, n_particles,
                             update_type, args.lr_exp, time.time(),init)
                             out_dir = args.dir + '/' + env + '/' + alg
