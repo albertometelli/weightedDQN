@@ -82,10 +82,10 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
                file_name, out_dir,init, collect_qs, seed):
     set_global_seeds(seed)
     print('Using seed %s' % seed)
-    if init not in ['eq_spaced','q-max','borders']:
+    if init not in ["eq-spaced","q-max","borders"]:
         warnings.warn('Initialization not defined')
-        init = 'eq_spaced'
-    if init=='eq_spaced':
+        init = 'eq-spaced'
+    if init=='eq-spaced':
         particles=None
     elif init=='q-max':
         particles=np.tile(q_max,n_approximators)
@@ -200,7 +200,7 @@ if __name__ == '__main__':
     update_types = ['mean', 'weighted']
     #envs = ["Chain", "Taxi", "KnightQuest", "Loop", "RiverSwim", "SixArms"]
     envs=["RiverSwim"]
-    init_configs=["eq-spaced","q_max","borders"]
+    init_configs=["eq-spaced","q-max","borders"]
     alg_to_policies = {
         "particle-ql": ["weighted", "vpi"],
         "boot-ql": ["boot", "weighted"],
