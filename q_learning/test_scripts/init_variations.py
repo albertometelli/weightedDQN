@@ -79,13 +79,18 @@ def compute_scores(dataset, gamma):
 
 
 def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min, lr_exp,
-               file_name, out_dir,eq_spaced, collect_qs, seed):
+               file_name, out_dir,init, collect_qs, seed):
     set_global_seeds(seed)
     print('Using seed %s' % seed)
-    if eq_spaced:
+    if init not in ['eq_spaced','q-max','borders']:
+        warnings.warn('Initialization not defined')
+        init = 'eq_spaced'
+    if init=='eq_spaced':
         particles=None
-    else:
+    elif init=='q-max':
         particles=np.tile(q_max,n_approximators)
+    elif init=='borders':
+        particles=np.concatenate((np.tile(q_min,int(n_approximators/2)),np.tile(q_max,int(n_approximators/2))))
     # MDP
     if name == 'Taxi':
         mdp = generate_taxi('../../grid.txt', horizon=5000)
@@ -195,6 +200,7 @@ if __name__ == '__main__':
     update_types = ['mean', 'weighted']
     #envs = ["Chain", "Taxi", "KnightQuest", "Loop", "RiverSwim", "SixArms"]
     envs=["RiverSwim"]
+    init_configs=["eq-spaced","q_max","borders"]
     alg_to_policies = {
         "particle-ql": ["weighted", "vpi"],
         "boot-ql": ["boot", "weighted"],
@@ -287,16 +293,16 @@ if __name__ == '__main__':
     for env in envs:
                 for policy in alg_to_policies[alg]:
                     for update_type in update_types:
-                        for eq_spaced in [True,False]:
+                        for init in init_configs:
                             print('Env: %s - Alg: %s - Policy: %s - Update: %s' % (
                             env, alg, policy, update_type))
                             qs = env_to_qs[env]
-                            file_name = 'qs_%s_%s_%s_%s_%s' % (
+                            file_name = 'qs_%s_%s_%s_%s_%s_%s_%s' % (
                             policy, n_particles,
-                            update_type, args.lr_exp, time.time())
+                            update_type, args.lr_exp, time.time(),init)
                             out_dir = args.dir + '/' + env + '/' + alg
                             fun_args = [alg, env, args.update_mode, update_type, policy, n_particles, qs[1], qs[0],
-                                    args.lr_exp, file_name, out_dir,eq_spaced]
+                                    args.lr_exp, file_name, out_dir,init]
                             out = Parallel(n_jobs=affinity)(
                                 delayed(experiment)(*(fun_args + [args.collect_qs if i == 0 else False, args.seed + i])) for
                                 i in range(n_experiment))
@@ -304,6 +310,6 @@ if __name__ == '__main__':
                             if not os.path.exists(out_dir):
                                 os.makedirs(out_dir)
                             file_name = 'results_prior_%s_%s_%s_%s_%s_%s' % (
-                            policy, n_particles, update_type, args.lr_exp, time.time(),'eq_spaced' if eq_spaced else '+R')
+                            policy, n_particles, update_type, args.lr_exp, time.time(),init)
                             np.save(out_dir + '/' + file_name, out)
 
