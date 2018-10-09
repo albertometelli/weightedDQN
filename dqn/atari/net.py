@@ -163,13 +163,14 @@ class ConvNet:
                 with tf.variable_scope('head_' + str(i)):
                     self._features.append(tf.layers.dense(
                         identity, 512, activation=tf.nn.relu,
-                        kernel_initializer=kernel_initializer(i),
+                        kernel_initializer=tf.glorot_uniform_initializer(),
                         name='_features_' + str(i)
                     ))
                     self._q.append(tf.layers.dense(
                         self._features[i],
                         convnet_pars['output_shape'][0],
-                        kernel_initializer=kernel_initializer(i),
+                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        bias_initializer=kernel_initializer(i),
                         name='q_' + str(i)
                     ))
                     self._q_acted.append(
