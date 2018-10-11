@@ -343,7 +343,7 @@ if __name__ == '__main__':
 
     affinity = len(os.sched_getaffinity(0))
     if args.name != '':
-        envs = [args.name]
+        envs = str.split(args.name)
 
     n_particles=args.n_approximators
     alg='particle-ql'
