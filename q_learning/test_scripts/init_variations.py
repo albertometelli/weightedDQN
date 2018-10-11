@@ -214,6 +214,7 @@ def add_noise_experiment(alg,n_particles,envs,args):
     for env in envs:
                 for policy in alg_to_policies[alg]:
                     for update_type in update_types:
+                        alpha = 0
                         while alpha<=max_alpha:
                             print('Env: %s - Alg: %s - Policy: %s - Update: %s' % (
                             env, alg, policy, update_type))
