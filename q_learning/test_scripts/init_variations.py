@@ -38,7 +38,6 @@ policy_dict = {'eps-greedy': EpsGreedy,
 algorithms = ['particle-ql']
 update_types = ['mean', 'weighted']
 #envs = ["Chain", "Taxi", "KnightQuest", "Loop", "RiverSwim", "SixArms"]
-envs=["RiverSwim"]
 init_configs=["eq-spaced","q-max","borders"]
 alg_to_policies = {
         "particle-ql": ["weighted", "vpi"],
@@ -207,7 +206,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         np.save(out_dir + '/' + file_name, qs)
     return train_scores, test_scores
 
-def add_noise_experiment(alg,n_particles,args):
+def add_noise_experiment(alg,n_particles,envs,args):
 
     alpha=0
     max_alpha=1
@@ -241,7 +240,7 @@ def add_noise_experiment(alg,n_particles,args):
                             np.save(out_dir + '/' + file_name, out)
                             alpha+=delta_alpha
 
-def init_variations_experiment(alg,n_particles,args):
+def init_variations_experiment(alg,n_particles,envs,args):
     for env in envs:
                 for policy in alg_to_policies[alg]:
                     for update_type in update_types:
@@ -334,16 +333,17 @@ if __name__ == '__main__':
     n_experiment = args.n_experiments
 
     affinity = len(os.sched_getaffinity(0))
+    envs = ["RiverSwim"]
     if args.name != '':
-        envs = str.split(args.name)
-
+        envs = str.split(args.name,',')
+    print(envs)
     n_particles=args.n_approximators
     alg='particle-ql'
 
     if args.add_noise:
-        add_noise_experiment(alg,n_particles,args)
+        add_noise_experiment(alg,n_particles,envs,args)
     elif args.init_variations:
-        init_variations_experiment(alg,n_particles,args)
+        init_variations_experiment(alg,n_particles,envs,args)
 
 
 
