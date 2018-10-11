@@ -278,14 +278,6 @@ if __name__ == '__main__':
 
     arg_game = parser.add_argument_group('Game')
     arg_game.add_argument("--name",
-                          choices=[
-                              "Chain",
-                              "Taxi",
-                              "KnightQuest",
-                              "Loop",
-                              "RiverSwim",
-                              "SixArms",
-                              ""],
                           default='',
                           help='Name of the environment to test.')
 
