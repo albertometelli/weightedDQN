@@ -35,7 +35,30 @@ policy_dict = {'eps-greedy': EpsGreedy,
                'weighted': WeightedPolicy,
                'boot': BootPolicy,
                'vpi': VPIPolicy}
-
+algorithms = ['particle-ql']
+update_types = ['mean', 'weighted']
+#envs = ["Chain", "Taxi", "KnightQuest", "Loop", "RiverSwim", "SixArms"]
+envs=["RiverSwim"]
+init_configs=["eq-spaced","q-max","borders"]
+alg_to_policies = {
+        "particle-ql": ["weighted", "vpi"],
+        "boot-ql": ["boot", "weighted"],
+        "ql": ["boltzmann", "eps-greedy"]
+    }
+alg_to_update_types = {
+        "particle-ql": ["weighted", "mean"],
+        "boot-ql": ["weighted"],
+        "ql": ["weighted"]
+    }
+env_to_qs = {
+        "KnightQuest": (-20, 20),
+        "Taxi": (0, 15),
+        "Loop": (0, 40),
+        "Chain": (0, 400),
+        "RiverSwim": (0, 150000),
+        "SixArms": (0, 200000)
+    }
+double_vec = [False, True]
 
 def set_global_seeds(i):
     try:
@@ -79,18 +102,10 @@ def compute_scores(dataset, gamma):
 
 
 def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min, lr_exp,
-               file_name, out_dir,init, collect_qs, seed):
+               file_name, out_dir,particles, collect_qs, seed):
     set_global_seeds(seed)
     print('Using seed %s' % seed)
-    if init not in ["eq-spaced","q-max","borders"]:
-        warnings.warn('Initialization not defined')
-        init = 'eq-spaced'
-    if init=='eq-spaced':
-        particles=None
-    elif init=='q-max':
-        particles=np.tile(q_max,n_approximators)
-    elif init=='borders':
-        particles=np.concatenate((np.tile(q_min,int(n_approximators/2)),np.tile(q_max,int(n_approximators/2))))
+
     # MDP
     if name == 'Taxi':
         mdp = generate_taxi('../../grid.txt', horizon=5000)
@@ -192,34 +207,75 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         np.save(out_dir + '/' + file_name, qs)
     return train_scores, test_scores
 
+def add_noise_experiment(alg,n_particles,args):
 
+    alpha=0
+    max_alpha=1
+    delta_alpha=args.delta_alpha
+    for env in envs:
+                for policy in alg_to_policies[alg]:
+                    for update_type in update_types:
+                        while alpha<=max_alpha:
+                            print('Env: %s - Alg: %s - Policy: %s - Update: %s' % (
+                            env, alg, policy, update_type))
+                            qs = env_to_qs[env]
+                            mu = (qs[1] + qs[0]) / 2
+                            sigma = qs[1] - qs[0]
+                            eq_spaced_particles = np.linspace(qs[0], qs[1], n_particles)
+                            noise_particles=np.random.randn(n_particles)*sigma+mu
+                            particles=alpha*eq_spaced_particles+(1-alpha)*noise_particles
+                            file_name = 'qs_%s_%s_%s_%s_%s_coef=%s' % (
+                            policy, n_particles,
+                            update_type, args.lr_exp, time.time(),alpha)
+                            out_dir = args.dir + '/' + env + '/' + alg
+                            fun_args = [alg, env, args.update_mode, update_type, policy, n_particles, qs[1], qs[0],
+                                    args.lr_exp, file_name, out_dir,particles]
+                            out = Parallel(n_jobs=affinity)(
+                                delayed(experiment)(*(fun_args + [args.collect_qs if i == 0 else False, args.seed + i])) for
+                                i in range(n_experiment))
+
+                            if not os.path.exists(out_dir):
+                                os.makedirs(out_dir)
+                            file_name = 'results_noise_%s_%s_%s_%s_%s_coef=%s' % (
+                            policy, n_particles, update_type, args.lr_exp, time.time(),alpha)
+                            np.save(out_dir + '/' + file_name, out)
+                            alpha+=delta_alpha
+
+def init_variations_experiment(alg,n_particles,args):
+    for env in envs:
+                for policy in alg_to_policies[alg]:
+                    for update_type in update_types:
+                        for init in init_configs:
+                            print('Env: %s - Alg: %s - Policy: %s - Update: %s' % (
+                            env, alg, policy, update_type))
+                            qs = env_to_qs[env]
+
+                            if init == 'eq-spaced':
+                                particles = np.linspace(qs[0], qs[1], n_particles)
+                            elif init == 'q-max':
+                                particles = np.tile(qs[1], n_particles)
+                            elif init == 'borders':
+                                particles = np.concatenate((np.tile(qs[0], int(n_particles / 2)),
+                                                            np.tile(qs[1], n_particles- int(n_particles / 2))))
+                            file_name = 'qs_%s_%s_%s_%s_%s_init=%s' % (
+                            policy, n_particles,
+                            update_type, args.lr_exp, time.time(),init)
+                            out_dir = args.dir + '/' + env + '/' + alg
+                            fun_args = [alg, env, args.update_mode, update_type, policy, n_particles, qs[1], qs[0],
+                                    args.lr_exp, file_name, out_dir,particles]
+                            out = Parallel(n_jobs=affinity)(
+                                delayed(experiment)(*(fun_args + [args.collect_qs if i == 0 else False, args.seed + i])) for
+                                i in range(n_experiment))
+
+                            if not os.path.exists(out_dir):
+                                os.makedirs(out_dir)
+                            file_name = 'results_prior_%s_%s_%s_%s_%s_init=%s' % (
+                            policy, n_particles, update_type, args.lr_exp, time.time(),init)
+                            np.save(out_dir + '/' + file_name, out)
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    algorithms = ['particle-ql']
-    update_types = ['mean', 'weighted']
-    #envs = ["Chain", "Taxi", "KnightQuest", "Loop", "RiverSwim", "SixArms"]
-    envs=["RiverSwim"]
-    init_configs=["eq-spaced","q-max","borders"]
-    alg_to_policies = {
-        "particle-ql": ["weighted", "vpi"],
-        "boot-ql": ["boot", "weighted"],
-        "ql": ["boltzmann", "eps-greedy"]
-    }
-    alg_to_update_types = {
-        "particle-ql": ["weighted", "mean"],
-        "boot-ql": ["weighted"],
-        "ql": ["weighted"]
-    }
-    env_to_qs = {
-        "KnightQuest": (-20, 20),
-        "Taxi": (0, 15),
-        "Loop": (0, 40),
-        "Chain": (0, 400),
-        "RiverSwim": (0, 150000),
-        "SixArms": (0, 200000)
-    }
-    double_vec = [False, True]
+
     arg_game = parser.add_argument_group('Game')
     arg_game.add_argument("--name",
                           choices=[
@@ -274,6 +330,13 @@ if __name__ == '__main__':
     arg_run.add_argument("--seed", type=int, default=0,
                          help='Seed.')
     arg_run.add_argument("--collect-qs", action='store_true')
+    arg_run.add_argument("--init-variation", action ='store_true',
+                         help='Run various initializations of particles')
+    arg_run.add_argument("--add-noise",action='store_true',
+                         help='Add noise to equally spaced init')
+    arg_run.add_argument("--delta-alpha",type=float,default=0.05,
+                         help='Step of noise intensity in add noise experiment')
+
 
     args = parser.parse_args()
     n_experiment = args.n_experiments
@@ -281,35 +344,14 @@ if __name__ == '__main__':
     affinity = len(os.sched_getaffinity(0))
     if args.name != '':
         envs = [args.name]
-    # if args.algorithm != '':
-    #     algorithms = [args.algorithm]
-    #     if args.policy != '' and args.policy in alg_to_policies[args.algorithm]:
-    #         alg_to_policies[args.algorithm] = [args.policy]
-    #     if args.update_type != '' and args.update_type in alg_to_update_types[args.algorithm]:
-    #         alg_to_update_types[args.algorithm] = [args.update_type]
 
     n_particles=args.n_approximators
     alg='particle-ql'
-    for env in envs:
-                for policy in alg_to_policies[alg]:
-                    for update_type in update_types:
-                        for init in init_configs:
-                            print('Env: %s - Alg: %s - Policy: %s - Update: %s' % (
-                            env, alg, policy, update_type))
-                            qs = env_to_qs[env]
-                            file_name = 'qs_%s_%s_%s_%s_%s_%s' % (
-                            policy, n_particles,
-                            update_type, args.lr_exp, time.time(),init)
-                            out_dir = args.dir + '/' + env + '/' + alg
-                            fun_args = [alg, env, args.update_mode, update_type, policy, n_particles, qs[1], qs[0],
-                                    args.lr_exp, file_name, out_dir,init]
-                            out = Parallel(n_jobs=affinity)(
-                                delayed(experiment)(*(fun_args + [args.collect_qs if i == 0 else False, args.seed + i])) for
-                                i in range(n_experiment))
 
-                            if not os.path.exists(out_dir):
-                                os.makedirs(out_dir)
-                            file_name = 'results_prior_%s_%s_%s_%s_%s_%s' % (
-                            policy, n_particles, update_type, args.lr_exp, time.time(),init)
-                            np.save(out_dir + '/' + file_name, out)
+    if args.add_noise:
+        add_noise_experiment(alg,n_particles,args)
+    elif args.init_variations:
+        init_variations_experiment(alg,n_particles,args)
+
+
 
