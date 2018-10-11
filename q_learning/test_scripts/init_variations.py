@@ -221,18 +221,21 @@ def add_noise_experiment(alg,n_particles,envs,args):
                             qs = env_to_qs[env]
                             mu = (qs[1] + qs[0]) / 2
                             sigma = qs[1] - qs[0]
+                            particle_list=[]
                             eq_spaced_particles = np.linspace(qs[0], qs[1], n_particles)
-                            noise_particles=np.random.randn(n_particles)*sigma+mu
-                            particles=alpha*eq_spaced_particles+(1-alpha)*noise_particles
+                            for exp in range(args.n_experiments):
+                                noise_particles=np.random.randn(n_particles)*sigma+mu
+                                particles=alpha*eq_spaced_particles+(1-alpha)*noise_particles
+                                particle_list.append(particles)
                             file_name = 'qs_%s_%s_%s_%s_%s_coef=%s' % (
                             policy, n_particles,
                             update_type, args.lr_exp, time.time(),alpha)
                             out_dir = args.dir + '/' + env + '/' + alg
                             fun_args = [alg, env, args.update_mode, update_type, policy, n_particles, qs[1], qs[0],
-                                    args.lr_exp, file_name, out_dir,particles]
+                                    args.lr_exp, file_name, out_dir]
                             out = Parallel(n_jobs=affinity)(
-                                delayed(experiment)(*(fun_args + [args.collect_qs if i == 0 else False, args.seed + i])) for
-                                i in range(n_experiment))
+                                delayed(experiment)(*(fun_args + [particle_list[i],args.collect_qs if i == 0 else False, args.seed + i])) for
+                                i in range(args.n_experiments))
 
                             if not os.path.exists(out_dir):
                                 os.makedirs(out_dir)
@@ -265,7 +268,7 @@ def init_variations_experiment(alg,n_particles,envs,args):
                                     args.lr_exp, file_name, out_dir,particles]
                             out = Parallel(n_jobs=affinity)(
                                 delayed(experiment)(*(fun_args + [args.collect_qs if i == 0 else False, args.seed + i])) for
-                                i in range(n_experiment))
+                                i in range(args.n_experiments))
 
                             if not os.path.exists(out_dir):
                                 os.makedirs(out_dir)
