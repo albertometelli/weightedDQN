@@ -291,6 +291,10 @@ if __name__ == '__main__':
     arg_run = parser.add_argument_group('Run')
     arg_run.add_argument("--n-experiments", type=int, default=10,
                          help='Number of experiments to execute.')
+    arg_run.add_argument("--min-n", type=int, default=1,
+                         help='Lowest nr of particles.')
+    arg_run.add_argument("--max-n", type=int, default=10,
+                         help='Maximum nr of particles.')
     arg_run.add_argument("--dir", type=str, default='./data',
                          help='Directory where to save data.')
     arg_run.add_argument("--seed", type=int, default=0,
@@ -312,9 +316,9 @@ if __name__ == '__main__':
 
     if args.double != '':
         double_vec = [bool(strtobool(args.double))]
-    n_particles=2
+    n_particles=args.min_n
     delta_n=1
-    max_n=50
+    max_n=args.max_n
     alg='particle-ql'
     while n_particles<=max_n:
         for env in envs:
