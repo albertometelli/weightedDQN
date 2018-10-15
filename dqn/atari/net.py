@@ -154,9 +154,11 @@ class ConvNet:
 
             if self.init_type == 'boot':
                 kernel_initializer = lambda _: tf.glorot_uniform_initializer()
+                bias_initializer=lambda _: tf.zeros_initializer()
             else:
                 initial_values = np.linspace(self.q_min, self.q_max, self.n_approximators)
-                kernel_initializer = lambda i: tf.constant_initializer(initial_values[i])
+                kernel_initializer =lambda _: tf.zeros_initializer()
+                bias_initializer = lambda i: tf.constant_initializer(initial_values[i])
 
             for i in range(self.n_approximators):
                 
@@ -169,8 +171,8 @@ class ConvNet:
                     self._q.append(tf.layers.dense(
                         self._features[i],
                         convnet_pars['output_shape'][0],
-                        kernel_initializer=tf.glorot_uniform_initializer(),
-                        bias_initializer=kernel_initializer(i),
+                        kernel_initializer=kernel_initializer(),
+                        bias_initializer=bias_initializer(i),
                         name='q_' + str(i)
                     ))
                     self._q_acted.append(
