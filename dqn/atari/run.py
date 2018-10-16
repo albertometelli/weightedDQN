@@ -264,8 +264,7 @@ def experiment():
 
         # MDP
         mdp = Atari(args.name, args.screen_width, args.screen_height,
-                    ends_at_life=True, history_length=args.history_length,
-                    max_no_op_actions=args.max_no_op_actions)
+                    ends_at_life=True)
 
         # Policy
         epsilon = LinearDecayParameter(value=args.initial_exploration_rate,

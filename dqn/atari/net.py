@@ -157,7 +157,7 @@ class ConvNet:
                 bias_initializer=lambda _:tf.zeros_initializer()
             else:
                 initial_values = np.linspace(self.q_min, self.q_max, self.n_approximators)
-                kernel_initializer = lambda _:tf.zeros_initializer()
+                kernel_initializer = lambda _:tf.random_normal_initializer(stddev=0.2)
                 bias_initializer = lambda i: tf.constant_initializer(initial_values[i])
 
             for i in range(self.n_approximators):
