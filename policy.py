@@ -2,6 +2,7 @@ import numpy as np
 
 from mushroom.policy.td_policy import TDPolicy
 from mushroom.utils.parameters import Parameter
+from scipy.stats import norm
 
 
 class BootPolicy(TDPolicy):
@@ -195,6 +196,85 @@ class VPIPolicy(TDPolicy):
 
                 max_a = np.array([np.random.choice(np.argwhere(score == np.max(score)).ravel())])
 
+                return max_a
+        else:
+            return np.array([np.random.choice(self._approximator.n_actions)])
+
+    def set_epsilon(self, epsilon):
+        self._epsilon = epsilon
+
+    def set_eval(self, eval):
+        self._evaluation = eval
+
+    def set_idx(self, idx):
+        pass
+
+    def update_epsilon(self, state):
+        self._epsilon(state)
+
+
+class WeightedGaussianPolicy(TDPolicy):
+    def __init__(self, epsilon=None):
+        if epsilon is None:
+            epsilon = Parameter(0.)
+
+        super(WeightedGaussianPolicy, self).__init__()
+
+        self._epsilon = epsilon
+        self._evaluation = False
+
+    @staticmethod
+    def _compute_prob_max(q_list):
+        mean_list = q_list[0]
+        sigma_list = q_list[1]
+        n_actions = len(mean_list)
+        lower_limit = mean_list - 8 * sigma_list
+        upper_limit = mean_list + 8 * sigma_list
+        n_trapz = 100
+        x = np.zeros(n_trapz, n_actions)
+        y = np.zeros(n_trapz, n_actions)
+        for j in range(n_actions):
+            x[:, j] = np.linspace(lower_limit[j], upper_limit[j], n_trapz)
+            y[:, j] = norm.pdf(x[:, j], loc=mean_list[j], scale=sigma_list[j])
+            for k in range(n_actions):
+                if k != j:
+                    y[:, j] *= norm.cdf(x[:, j], loc=mean_list[k], scale=sigma_list[k])
+
+        integrals = ((upper_limit - lower_limit) / (2 * (n_trapz - 1))) * \
+                    (y[0, :] + y[-1, :] + 2 * np.sum(y[1:-1, :], axis=0))
+        assert np.isclose(np.sum(integrals), 1)
+        return integrals
+
+    def draw_action(self, state):
+        if not np.random.uniform() < self._epsilon(state):
+            if self._evaluation:
+                if isinstance(self._approximator.model, list):
+                    q_list = list()
+                    for q in self._approximator.model:
+                        q_list.append(q.predict(state))
+                else:
+                    q_list = self._approximator.predict(state).squeeze()
+
+                prob = WeightedGaussianPolicy._compute_prob_max(q_list)
+                max_a = np.array([np.random.choice(np.argwhere(prob == np.max(prob)).ravel())])
+                return max_a
+            else:
+                if isinstance(self._approximator.model, list):
+                    q_list = list()
+                    for q in self._approximator.model:
+                        q_list.append(q.predict(state))
+                else:
+                    q_list = self._approximator.predict(state).squeeze()
+
+                qs = np.array(q_list)
+
+                samples = np.ones(self._approximator.n_actions)
+                for a in range(self._approximator.n_actions):
+                    mean = qs[0, a]
+                    sigma = qs[1, a]
+                    samples[a] = np.random.normal(loc=mean, scale=sigma)
+
+                max_a = np.array([np.random.choice(np.argwhere(samples == np.max(samples)).ravel())])
                 return max_a
         else:
             return np.array([np.random.choice(self._approximator.n_actions)])

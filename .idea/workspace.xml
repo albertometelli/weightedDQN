@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="c1e64d11-33c8-4288-898a-c7f5b20dfe3e" name="Default" comment="">
+      <change afterPath="$PROJECT_DIR$/q_learning/wq_learning.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/policy.py" beforeDir="false" afterPath="$PROJECT_DIR$/policy.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -25,27 +27,30 @@
           <entry key="project.open.time.4" value="3" />
           <entry key="project.open.time.43" value="1" />
           <entry key="project.open.time.45" value="1" />
-          <entry key="project.opened" value="12" />
+          <entry key="project.open.time.7" value="1" />
+          <entry key="project.opened" value="13" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
-          <entry key="py" value="10" />
+          <entry key="py" value="15" />
+          <entry key="wq_learning" value="1" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
-          <entry key="Python" value="10" />
+          <entry key="Python" value="16" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
-          <entry key="py" value="2371" />
+          <entry key="py" value="2815" />
+          <entry key="wq_learning" value="1223" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
-          <entry key="Python" value="2371" />
+          <entry key="Python" value="4038" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.vcs.git.usages" />
@@ -53,10 +58,10 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/dqn/atari/net.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="2898">
+            <state relative-caret-position="556">
               <caret line="162" column="46" selection-start-line="162" selection-start-column="46" selection-end-line="162" selection-end-column="46" />
               <folding>
                 <element signature="e#0#18#0" expanded="true" />
@@ -65,14 +70,65 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/dqn/atari/run.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="18">
+            <state relative-caret-position="1368">
               <caret line="269" column="36" selection-start-line="269" selection-start-column="36" selection-end-line="269" selection-end-column="36" />
               <folding>
                 <element signature="e#0#15#0" expanded="true" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/policy.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="422">
+              <caret line="236" column="74" lean-forward="true" selection-start-line="236" selection-start-column="74" selection-end-line="236" selection-end-column="74" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/q_learning/run.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="196">
+              <caret line="276" column="78" lean-forward="true" selection-start-line="275" selection-start-column="4" selection-end-line="276" selection-end-column="78" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/q_learning/wq_learning.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="304">
+              <caret line="36" column="74" lean-forward="true" selection-start-line="36" selection-start-column="74" selection-end-line="36" selection-end-column="74" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/q_learning/run_wq.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="187">
+              <caret line="206" column="12" selection-start-line="206" selection-start-column="8" selection-end-line="206" selection-end-column="12" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/q_learning/particle_q_learning.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="106">
+              <caret line="32" column="36" lean-forward="true" selection-start-line="32" selection-start-column="36" selection-end-line="32" selection-end-column="36" />
             </state>
           </provider>
         </entry>
@@ -89,6 +145,8 @@
   <component name="FindInProjectRecents">
     <findStrings>
       <find>folder</find>
+      <find>weighted</find>
+      <find>data</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -100,12 +158,16 @@
         <option value="$PROJECT_DIR$/runExperiments.py" />
         <option value="$PROJECT_DIR$/run_experiments.py" />
         <option value="$PROJECT_DIR$/atari_dqn.py" />
-        <option value="$PROJECT_DIR$/q_learning/particle_q_learning.py" />
         <option value="$PROJECT_DIR$/../../../data/visualize_particles.py" />
         <option value="$PROJECT_DIR$/q_learning/test_scripts/init_variations.py" />
         <option value="$PROJECT_DIR$/q_learning/test_scripts/nr_particles.py" />
         <option value="$PROJECT_DIR$/dqn/atari/run.py" />
         <option value="$PROJECT_DIR$/dqn/atari/net.py" />
+        <option value="$PROJECT_DIR$/q_learning/particle_q_learning.py" />
+        <option value="$PROJECT_DIR$/q_learning/wq_learning" />
+        <option value="$PROJECT_DIR$/q_learning/run_wq.py" />
+        <option value="$PROJECT_DIR$/q_learning/wq_learning.py" />
+        <option value="$PROJECT_DIR$/policy.py" />
       </list>
     </option>
   </component>
@@ -136,13 +198,7 @@
             <path>
               <item name="weightedDQN" type="b2602c69:ProjectViewProjectNode" />
               <item name="weightedDQN" type="462c0819:PsiDirectoryNode" />
-              <item name="dqn" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="weightedDQN" type="b2602c69:ProjectViewProjectNode" />
-              <item name="weightedDQN" type="462c0819:PsiDirectoryNode" />
-              <item name="dqn" type="462c0819:PsiDirectoryNode" />
-              <item name="atari" type="462c0819:PsiDirectoryNode" />
+              <item name="q_learning" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -153,7 +209,7 @@
   </component>
   <component name="PropertiesComponent">
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="/run/user/1000/gvfs/sftp:host=10.79.0.39,user=restelli/home/restelli/MagnetiMarelli/polimi_decisionmaker" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="settings.editor.selected.configurable" value="preferences.editor" />
   </component>
   <component name="RunDashboard">
@@ -355,8 +411,9 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="64" y="-11" width="1303" height="780" extended-state="6" />
+    <editor active="true" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.30438247" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.30996016" />
       <window_info id="Structure" order="1" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -417,24 +474,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/q_learning/run.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2268">
-          <caret line="146" column="52" selection-start-line="145" selection-start-column="32" selection-end-line="146" selection-end-column="52" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/q_learning/test_scripts/init_variations.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="4104">
           <caret line="236" column="83" selection-start-line="236" selection-start-column="83" selection-end-line="236" selection-end-column="83" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/q_learning/particle_q_learning.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="216">
-          <caret line="15" column="68" selection-start-line="15" selection-start-column="26" selection-end-line="15" selection-end-column="68" />
         </state>
       </provider>
     </entry>
@@ -445,22 +488,70 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/dqn/atari/net.py">
+    <entry file="file://$PROJECT_DIR$/dqn/atari/run.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2898">
-          <caret line="162" column="46" selection-start-line="162" selection-start-column="46" selection-end-line="162" selection-end-column="46" />
+        <state relative-caret-position="1368">
+          <caret line="269" column="36" selection-start-line="269" selection-start-column="36" selection-end-line="269" selection-end-column="36" />
+          <folding>
+            <element signature="e#0#15#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/q_learning/particle_q_learning.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="106">
+          <caret line="32" column="36" lean-forward="true" selection-start-line="32" selection-start-column="36" selection-end-line="32" selection-end-column="36" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/q_learning/wq_learning">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="72">
+          <caret line="4" column="11" selection-start-line="4" selection-end-line="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/q_learning/run.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="196">
+          <caret line="276" column="78" lean-forward="true" selection-start-line="275" selection-start-column="4" selection-end-line="276" selection-end-column="78" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/q_learning/wq_learning.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="304">
+          <caret line="36" column="74" lean-forward="true" selection-start-line="36" selection-start-column="74" selection-end-line="36" selection-end-column="74" />
           <folding>
             <element signature="e#0#18#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/dqn/atari/run.py">
+    <entry file="file://$PROJECT_DIR$/policy.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="18">
-          <caret line="269" column="36" selection-start-line="269" selection-start-column="36" selection-end-line="269" selection-end-column="36" />
+        <state relative-caret-position="422">
+          <caret line="236" column="74" lean-forward="true" selection-start-line="236" selection-start-column="74" selection-end-line="236" selection-end-column="74" />
           <folding>
-            <element signature="e#0#15#0" expanded="true" />
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/q_learning/run_wq.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="187">
+          <caret line="206" column="12" selection-start-line="206" selection-start-column="8" selection-end-line="206" selection-end-column="12" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/dqn/atari/net.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="556">
+          <caret line="162" column="46" selection-start-line="162" selection-start-column="46" selection-end-line="162" selection-end-column="46" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
           </folding>
         </state>
       </provider>
