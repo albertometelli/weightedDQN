@@ -231,8 +231,8 @@ class WeightedGaussianPolicy(TDPolicy):
         lower_limit = mean_list - 8 * sigma_list
         upper_limit = mean_list + 8 * sigma_list
         n_trapz = 100
-        x = np.zeros(n_trapz, n_actions)
-        y = np.zeros(n_trapz, n_actions)
+        x = np.zeros(shape=(n_trapz, n_actions))
+        y = np.zeros(shape=(n_trapz, n_actions))
         for j in range(n_actions):
             x[:, j] = np.linspace(lower_limit[j], upper_limit[j], n_trapz)
             y[:, j] = norm.pdf(x[:, j], loc=mean_list[j], scale=sigma_list[j])
@@ -242,7 +242,8 @@ class WeightedGaussianPolicy(TDPolicy):
 
         integrals = ((upper_limit - lower_limit) / (2 * (n_trapz - 1))) * \
                     (y[0, :] + y[-1, :] + 2 * np.sum(y[1:-1, :], axis=0))
-        assert np.isclose(np.sum(integrals), 1)
+        #print(np.sum(integrals))
+        #assert np.isclose(np.sum(integrals), 1)
         return integrals
 
     def draw_action(self, state):

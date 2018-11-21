@@ -12,10 +12,10 @@ MAP = [
     "+-------+",
 ]
 
-register(
+'''register(
     id='KnightQuest-v0',
     entry_point='envs.knight_quest:KnightQuest',
-)
+)'''
 
 class KnightQuest(DiscreteEnv):
     def __init__(self,

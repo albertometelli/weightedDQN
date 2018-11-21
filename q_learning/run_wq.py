@@ -28,6 +28,8 @@ from envs.loop import generate_loop
 from envs.river_swim import generate_river
 from envs.six_arms import generate_arms
 from utils.callbacks import CollectQs
+import envs.knight_quest
+from gym.envs.registration import register
 
 policy_dict = {'eps-greedy': EpsGreedy,
                'boltzmann': Boltzmann,
@@ -77,7 +79,7 @@ def compute_scores(dataset, gamma):
         return len(dataset), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 
-def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, r_max, lr_exp, double,
+def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, r_max, q_max, q_min, lr_exp, double,
                file_name, out_dir, collect_qs, seed):
     set_global_seeds(seed)
     print('Using seed %s' % seed)
@@ -109,7 +111,15 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         evaluation_frequency = 1000
         test_samples = 1000
     elif name == 'KnightQuest':
-        mdp = Gym('KnightQuest-v0', gamma=0.99, horizon=10000)
+        mdp = None
+        try:
+            mdp = Gym('KnightQuest-v0', gamma=0.99, horizon=10000)
+        except:
+            register(
+                id='KnightQuest-v0',
+                entry_point='envs.knight_quest:KnightQuest',
+            )
+            mdp = Gym('KnightQuest-v0', gamma=0.99, horizon=10000)
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
@@ -162,7 +172,8 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         algorithm_params = dict(
                                 update_mode=update_mode,
                                 update_type=update_type,
-                                init_values=(0, r_max / (4 * (1 - gamma))),
+                                init_values=((q_max - q_min) / 2,
+                                             q_max - q_min / np.sqrt(12)),
                                 **algorithm_params)
         if double:
             agent = ParticleDoubleQLearning(pi, mdp.info, **algorithm_params)
@@ -222,7 +233,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     algorithms = ['w-ql', 'boot-ql', 'particle-ql']
     update_types = ['mean', 'weighted']
-    envs = ["Chain", "Taxi", "KnightQuest", "Loop", "RiverSwim", "SixArms"]
+    envs = ["Chain", "Taxi",  "Loop", "RiverSwim", "SixArms", "KnightQuest"]
     alg_to_policies = {
         "w-ql": ["weighted-gaussian"],
         "boot-ql": ["boot", "weighted"],
@@ -238,8 +249,26 @@ if __name__ == '__main__':
         "Taxi": 11,
         "Loop":  2,
         "Chain": 10,
-        "RiverSwim": 1000,
-        "SixArms": 1000
+        "RiverSwim": 100,
+        "SixArms": 100
+    }
+
+    env_to_qs = {
+        "KnightQuest": (-20, 20),
+        "Taxi": (0, 15),
+        "Loop": (0, 40),
+        "Chain": (0, 400),
+        "RiverSwim": (0, 70000),
+        "SixArms": (0, 200000)
+    }
+
+    collect_qs_dict = {
+        "KnightQuest": False,
+        "Taxi": False,
+        "Loop": True,
+        "Chain": True,
+        "RiverSwim": True,
+        "SixArms": True
     }
     double_vec = [False, True]
     arg_game = parser.add_argument_group('Game')
@@ -271,7 +300,7 @@ if __name__ == '__main__':
                          default='',
                          help='Kind of update to perform (only WQLearning).')
     arg_alg.add_argument("--policy",
-                         choices=['weighted'],
+                         choices=['weighted-gaussian'],
                          default='',
                          help='Kind of policy to use (not all available for all).')
     arg_alg.add_argument("--n-approximators", type=int, default=20,
@@ -314,13 +343,14 @@ if __name__ == '__main__':
                         print('Env: %s - Alg: %s - Policy: %s - Update: %s - Double: %s' % (
                         env, alg, policy, update_type, double))
                         rmax = env_to_r_max[env]
+                        qs = env_to_qs[env]
                         file_name = 'qs_%s_%s_%s_double=%s_%s' % (
                         policy,'' if alg != 'w-ql' else update_type, args.lr_exp, double, time.time())
                         out_dir = args.dir + '/' + env + '/' + alg
-                        fun_args = [alg, env, args.update_mode, update_type, policy, args.n_approximators, rmax,
+                        fun_args = [alg, env, args.update_mode, update_type, policy, args.n_approximators, rmax, qs[1], qs[0],
                                     args.lr_exp, double, file_name, out_dir]
                         out = Parallel(n_jobs=affinity)(
-                            delayed(experiment)(*(fun_args + [args.collect_qs if i == 0 else False, args.seed + i])) for
+                            delayed(experiment)(*(fun_args + [collect_qs_dict[env] if args.collect_qs and i == 0 else False, args.seed + i])) for
                             i in range(n_experiment))
 
                         if not os.path.exists(out_dir):
