@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
+<<<<<<< HEAD
     <list default="true" id="c1e64d11-33c8-4288-898a-c7f5b20dfe3e" name="Default" comment="">
       <change afterPath="$PROJECT_DIR$/dqn/deepq.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
@@ -10,6 +11,9 @@
       <change beforePath="$PROJECT_DIR$/q_learning/run_wq.py" beforeDir="false" afterPath="$PROJECT_DIR$/q_learning/run_wq.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/q_learning/wq_learning.py" beforeDir="false" afterPath="$PROJECT_DIR$/q_learning/wq_learning.py" afterDir="false" />
     </list>
+=======
+    <list default="true" id="c1e64d11-33c8-4288-898a-c7f5b20dfe3e" name="Default" comment="" />
+>>>>>>> 6e4118fc3bc226920e44d9b39f03582ec197129f
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -37,24 +41,24 @@
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
-          <entry key="py" value="15" />
+          <entry key="py" value="18" />
           <entry key="wq_learning" value="1" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
-          <entry key="Python" value="16" />
+          <entry key="Python" value="19" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
-          <entry key="py" value="2815" />
+          <entry key="py" value="2863" />
           <entry key="wq_learning" value="1223" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
-          <entry key="Python" value="4038" />
+          <entry key="Python" value="4086" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.vcs.git.usages" />
@@ -93,9 +97,121 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
+<<<<<<< HEAD
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/dqn/deepq.py">
           <provider selected="true" editor-type-id="text-editor" />
+=======
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/dqn/atari/net.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="556">
+              <caret line="162" column="46" selection-start-line="162" selection-start-column="46" selection-end-line="162" selection-end-column="46" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/dqn/atari/run.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="1368">
+              <caret line="269" column="36" selection-start-line="269" selection-start-column="36" selection-end-line="269" selection-end-column="36" />
+              <folding>
+                <element signature="e#0#15#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/policy.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="422">
+              <caret line="236" column="74" lean-forward="true" selection-start-line="236" selection-start-column="74" selection-end-line="236" selection-end-column="74" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/q_learning/run.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="196">
+              <caret line="276" column="78" lean-forward="true" selection-start-line="275" selection-start-column="4" selection-end-line="276" selection-end-column="78" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/q_learning/wq_learning.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="304">
+              <caret line="36" column="74" lean-forward="true" selection-start-line="36" selection-start-column="74" selection-end-line="36" selection-end-column="74" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/q_learning/run_wq.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="187">
+              <caret line="206" column="65" lean-forward="true" selection-start-line="206" selection-start-column="65" selection-end-line="206" selection-end-column="65" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file:///run/user/1000/gvfs/sftp:host=turing.deib.polimi.it,user=particle/home/particle/weightedDQN/q_learning/run_wq.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="344">
+              <caret line="324" lean-forward="true" selection-start-line="324" selection-end-line="324" />
+              <folding>
+                <element signature="e#0#10#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file:///run/user/1000/gvfs/sftp:host=turing.deib.polimi.it,user=particle/home/particle/weightedDQN/policy.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="522">
+              <caret line="245" column="48" lean-forward="true" selection-start-line="245" selection-start-column="48" selection-end-line="245" selection-end-column="48" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file:///run/user/1000/gvfs/sftp:host=turing.deib.polimi.it,user=particle/home/particle/weightedDQN/q_learning/wq_learning.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="486">
+              <caret line="45" column="9" selection-start-line="45" selection-start-column="9" selection-end-line="45" selection-end-column="9" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/q_learning/particle_q_learning.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="106">
+              <caret line="32" column="36" lean-forward="true" selection-start-line="32" selection-start-column="36" selection-end-line="32" selection-end-column="36" />
+            </state>
+          </provider>
+>>>>>>> 6e4118fc3bc226920e44d9b39f03582ec197129f
         </entry>
       </file>
     </leaf>
@@ -131,9 +247,14 @@
         <option value="$PROJECT_DIR$/q_learning/particle_q_learning.py" />
         <option value="$PROJECT_DIR$/q_learning/wq_learning" />
         <option value="$PROJECT_DIR$/policy.py" />
+<<<<<<< HEAD
         <option value="$PROJECT_DIR$/q_learning/wq_learning.py" />
         <option value="$PROJECT_DIR$/q_learning/run_wq.py" />
         <option value="$PROJECT_DIR$/dqn/deepq.py" />
+=======
+        <option value="/run/user/1000/gvfs/sftp:host=turing.deib.polimi.it,user=particle/home/particle/weightedDQN/q_learning/wq_learning.py" />
+        <option value="/run/user/1000/gvfs/sftp:host=turing.deib.polimi.it,user=particle/home/particle/weightedDQN/policy.py" />
+>>>>>>> 6e4118fc3bc226920e44d9b39f03582ec197129f
       </list>
     </option>
   </component>
@@ -374,7 +495,11 @@
   <component name="ToolWindowManager">
     <frame x="64" y="-11" width="1303" height="780" extended-state="6" />
     <layout>
+<<<<<<< HEAD
       <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.25816733" />
+=======
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.30996016" />
+>>>>>>> 6e4118fc3bc226920e44d9b39f03582ec197129f
       <window_info id="Structure" order="1" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -394,7 +519,7 @@
       <window_info anchor="right" id="Data View" order="3" />
       <window_info anchor="right" id="Database" order="4" />
       <window_info anchor="right" id="R Graphics" order="5" />
-      <window_info anchor="right" id="R Packages" order="6" />
+      <window_info anchor="right" id="R Packages" order="6" weight="0.32988048" />
     </layout>
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -472,6 +597,33 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/policy.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="422">
+          <caret line="236" column="74" lean-forward="true" selection-start-line="236" selection-start-column="74" selection-end-line="236" selection-end-column="74" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/dqn/atari/net.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="556">
+          <caret line="162" column="46" selection-start-line="162" selection-start-column="46" selection-end-line="162" selection-end-column="46" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/q_learning/run_wq.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="187">
+          <caret line="206" column="65" lean-forward="true" selection-start-line="206" selection-start-column="65" selection-end-line="206" selection-end-column="65" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/q_learning/run.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="4608">
@@ -488,6 +640,7 @@
         </state>
       </provider>
     </entry>
+<<<<<<< HEAD
     <entry file="file://$PROJECT_DIR$/q_learning/particle_q_learning.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="522">
@@ -499,16 +652,39 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="308">
           <caret line="334" column="57" selection-start-line="334" selection-start-column="57" selection-end-line="334" selection-end-column="57" />
+=======
+    <entry file="file:///run/user/1000/gvfs/sftp:host=turing.deib.polimi.it,user=particle/home/particle/weightedDQN/q_learning/run_wq.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="344">
+          <caret line="324" lean-forward="true" selection-start-line="324" selection-end-line="324" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
+    <entry file="file:///run/user/1000/gvfs/sftp:host=turing.deib.polimi.it,user=particle/home/particle/weightedDQN/q_learning/wq_learning.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="486">
+          <caret line="45" column="9" selection-start-line="45" selection-start-column="9" selection-end-line="45" selection-end-column="9" />
+>>>>>>> 6e4118fc3bc226920e44d9b39f03582ec197129f
+          <folding>
+            <element signature="e#0#10#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+<<<<<<< HEAD
     <entry file="file://$PROJECT_DIR$/q_learning/wq_learning.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="342">
           <caret line="130" column="64" selection-start-line="130" selection-start-column="64" selection-end-line="130" selection-end-column="64" />
+=======
+    <entry file="file:///run/user/1000/gvfs/sftp:host=turing.deib.polimi.it,user=particle/home/particle/weightedDQN/policy.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="522">
+          <caret line="245" column="48" lean-forward="true" selection-start-line="245" selection-start-column="48" selection-end-line="245" selection-end-column="48" />
+>>>>>>> 6e4118fc3bc226920e44d9b39f03582ec197129f
           <folding>
             <element signature="e#0#18#0" expanded="true" />
           </folding>

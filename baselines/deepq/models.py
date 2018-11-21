@@ -138,6 +138,7 @@ def build_q_func(network, hiddens=[256], dueling=True, layer_norm=False, **netwo
             return q_out
 
     return q_func_builder
+<<<<<<< HEAD
 
 
 def build_weighted_q_func(network, hiddens=[256], dueling=True, layer_norm=False, **network_kwargs):
@@ -173,3 +174,5 @@ def build_weighted_q_func(network, hiddens=[256], dueling=True, layer_norm=False
             return q_out, sigmas
 
     return q_func_builder
+=======
+>>>>>>> 6e4118fc3bc226920e44d9b39f03582ec197129f

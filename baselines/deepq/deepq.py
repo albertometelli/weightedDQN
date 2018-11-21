@@ -17,7 +17,11 @@ from baselines.deepq.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 from baselines.deepq.utils import ObservationInput
 
 from baselines.common.tf_util import get_session
+<<<<<<< HEAD
 from baselines.deepq.models import build_q_func, build_weighted_q_func
+=======
+from baselines.deepq.models import build_q_func
+>>>>>>> 6e4118fc3bc226920e44d9b39f03582ec197129f
 
 
 class ActWrapper(object):
@@ -190,7 +194,11 @@ def learn(env,
     sess = get_session()
     set_global_seeds(seed)
 
+<<<<<<< HEAD
     q_func = build_weighted_q_func(network, **network_kwargs)
+=======
+    q_func = build_q_func(network, **network_kwargs)
+>>>>>>> 6e4118fc3bc226920e44d9b39f03582ec197129f
 
     # capture the shape outside the closure so that the env object is not serialized
     # by cloudpickle when serializing make_obs_ph
@@ -230,7 +238,11 @@ def learn(env,
         beta_schedule = None
     # Create the schedule for exploration starting from 1.
     exploration = LinearSchedule(schedule_timesteps=int(exploration_fraction * total_timesteps),
+<<<<<<< HEAD
                                  initial_p=exploration_final_eps,
+=======
+                                 initial_p=1.0,
+>>>>>>> 6e4118fc3bc226920e44d9b39f03582ec197129f
                                  final_p=exploration_final_eps)
 
     # Initialize the parameters and copy them to the target network.
@@ -298,6 +310,7 @@ def learn(env,
                 else:
                     obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(batch_size)
                     weights, batch_idxes = np.ones_like(rewards), None
+<<<<<<< HEAD
                 td_errors, train_qs, train_sigmas, target_qs, target_sigmas, prob, target = train(obses_t, actions, rewards, obses_tp1, dones, weights)
                 print("TD-Errors:")
                 print(td_errors)
@@ -314,6 +327,9 @@ def learn(env,
                 print("Target")
                 print(target)
                 input()
+=======
+                td_errors = train(obses_t, actions, rewards, obses_tp1, dones, weights)
+>>>>>>> 6e4118fc3bc226920e44d9b39f03582ec197129f
                 if prioritized_replay:
                     new_priorities = np.abs(td_errors) + prioritized_replay_eps
                     replay_buffer.update_priorities(batch_idxes, new_priorities)
