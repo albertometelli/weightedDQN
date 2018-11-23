@@ -396,7 +396,7 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
         obs_tp1_input = make_obs_ph("obs_tp1")
         done_mask_ph = tf.placeholder(tf.float32, [None], name="done")
         importance_weights_ph = tf.placeholder(tf.float32, [None], name="weight")
-        weighted_update_ph = tf.placeholder(tf.bool, [None], name="weighted_update")
+        weighted_update_ph = tf.placeholder(tf.bool,  name="weighted_update")
         # q network evaluation
         q_t, sigma_t = q_func(obs_t_input.get(), num_actions, scope="q_func", reuse=True)  # reuse parameters from act
         q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/q_func")
@@ -417,16 +417,16 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
         sigma_target_weighted = tf.reduce_sum(tf.multiply(prob, sigmas_tp1), 1)
 
         best_target = tf.argmax(q_tp1, axis=1)
-        q_target_mean = tf.reduce_max(q_tp1, 1)
-        sigma_target_mean = sigmas_tp1[best_target]
+        q_target_mean = tf.reduce_max(q_tp1, axis=1)
+        sigma_target_mean = tf.reduce_sum(sigmas_tp1 * tf.one_hot(best_target, num_actions), 1)
 
         q_target_unmasked = tf.cond(weighted_update_ph, lambda: q_target_weighted, lambda: q_target_mean)
         sigma_target_unmasked = tf.cond(weighted_update_ph, lambda: sigma_target_weighted, lambda: sigma_target_mean)
 
         q_target_masked = (1.0 - done_mask_ph) * q_target_unmasked
         sigma_target_masked = (1.0 - done_mask_ph) * sigma_target_unmasked
-        q_target = rew_t_ph + gamma * q_target_masked
 
+        q_target = rew_t_ph + gamma * q_target_masked
         sigma_target = gamma * sigma_target_masked
 
         # compute the error (potentially clipped)

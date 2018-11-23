@@ -20,7 +20,7 @@ def main():
     # Argument parser
     parser = argparse.ArgumentParser()
     arg_utils = parser.add_argument_group('Utils')
-    arg_utils.add_argument("--device", type=int, default=0,
+    arg_utils.add_argument("--device", type=int, default=3,
                            help='Index of the GPU.')
     arg_utils.add_argument("--mean_update", action='store_true')
 
@@ -54,7 +54,7 @@ def main():
         convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
         hiddens=[256],
         dueling=False,
-        weighted=not args.mean_update,
+        weighted_update=not args.mean_update,
         checkpoint_path="deepq_logs/Breakout"
     )
 
