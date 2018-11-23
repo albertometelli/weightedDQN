@@ -176,26 +176,41 @@ def build_act(make_obs_ph, q_func, num_actions, scope="deepq", reuse=None):
     with tf.variable_scope(scope, reuse=reuse):
         observations_ph = make_obs_ph("observation")
         stochastic_ph = tf.placeholder(tf.bool, (), name="stochastic")
+        update_eval_ph = tf.placeholder(tf.float32, (), name="update_eval")
         update_eps_ph = tf.placeholder(tf.float32, (), name="update_eps")
 
         eps = tf.get_variable("eps", (), initializer=tf.constant_initializer(0))
+        eval_var = tf.get_variable("eval", (), dtype=tf.bool, initializer=tf.constant_initializer(False, dtype=tf.bool))
 
-        q_values = q_func(observations_ph.get(), num_actions, scope="q_func")
+        q_values, sigma_values = q_func(observations_ph.get(), num_actions, scope="q_func")
         deterministic_actions = tf.argmax(q_values, axis=1)
-
         batch_size = tf.shape(observations_ph.get())[0]
+
+        q_samples = tf.distributions.Normal(loc=q_values, scale=sigma_values).sample()
+        sampled_actions = tf.argmax(q_samples, axis=1)
+
         random_actions = tf.random_uniform(tf.stack([batch_size]), minval=0, maxval=num_actions, dtype=tf.int64)
         chose_random = tf.random_uniform(tf.stack([batch_size]), minval=0, maxval=1, dtype=tf.float32) < eps
-        stochastic_actions = tf.where(chose_random, random_actions, deterministic_actions)
+        stochastic_actions = tf.where(chose_random, random_actions, sampled_actions)
+        output_actions = tf.cond(stochastic_ph, lambda: stochastic_actions, lambda: sampled_actions)
 
-        output_actions = tf.cond(stochastic_ph, lambda: stochastic_actions, lambda: deterministic_actions)
+        actions = tf.cond(eval_var, lambda: deterministic_actions, lambda: output_actions)
+
         update_eps_expr = eps.assign(tf.cond(update_eps_ph >= 0, lambda: update_eps_ph, lambda: eps))
-        _act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
-                         outputs=output_actions,
-                         givens={update_eps_ph: -1.0, stochastic_ph: True},
-                         updates=[update_eps_expr])
-        def act(ob, stochastic=True, update_eps=-1):
-            return _act(ob, stochastic, update_eps)
+        '''
+            Update_eval -1: Don't change
+            Update_eval 0: Set to False
+            Update_eval 1: Set to True
+        '''
+        update_eval_expr = eval_var.assign(tf.cond(update_eval_ph < 0, lambda: eval_var,
+                                                   lambda: tf.cond(update_eps_ph > 0, lambda: True, lambda:False)))
+        _act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph, update_eval_ph],
+                          outputs=actions,
+                          givens={update_eps_ph: -1.0, stochastic_ph: True, update_eval_ph: -1.0},
+                          updates=[update_eps_expr, update_eval_expr])
+
+        def act(ob, stochastic=True, update_eps=-1, update_eval=-1):
+            return _act(ob, stochastic, update_eps, update_eval)
         return act
 
 
@@ -369,11 +384,9 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
     debug: {str: function}
         a bunch of functions to print debug data like q_values.
     """
-    if param_noise:
-        act_f = build_act_with_param_noise(make_obs_ph, q_func, num_actions, scope=scope, reuse=reuse,
-            param_noise_filter_func=param_noise_filter_func)
-    else:
-        act_f = build_act(make_obs_ph, q_func, num_actions, scope=scope, reuse=reuse)
+
+    act_f = build_act(make_obs_ph, q_func, num_actions, scope=scope, reuse=reuse)
+
 
     with tf.variable_scope(scope, reuse=reuse):
         # set up placeholders
@@ -383,44 +396,56 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
         obs_tp1_input = make_obs_ph("obs_tp1")
         done_mask_ph = tf.placeholder(tf.float32, [None], name="done")
         importance_weights_ph = tf.placeholder(tf.float32, [None], name="weight")
-
+        weighted_update_ph = tf.placeholder(tf.bool, [None], name="weighted_update")
         # q network evaluation
-        q_t = q_func(obs_t_input.get(), num_actions, scope="q_func", reuse=True)  # reuse parameters from act
+        q_t, sigma_t = q_func(obs_t_input.get(), num_actions, scope="q_func", reuse=True)  # reuse parameters from act
         q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/q_func")
 
         # target q network evalution
-        q_tp1 = q_func(obs_tp1_input.get(), num_actions, scope="target_q_func")
+        q_tp1, sigmas_tp1 = q_func(obs_tp1_input.get(), num_actions, scope="target_q_func")
+
         target_q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/target_q_func")
 
         # q scores for actions which we know were selected in the given state.
         q_t_selected = tf.reduce_sum(q_t * tf.one_hot(act_t_ph, num_actions), 1)
 
+        sigma_t_selected = tf.reduce_sum(sigma_t * tf.one_hot(act_t_ph, num_actions), 1)
         # compute estimate of best possible value starting from state at t + 1
-        if double_q:
-            q_tp1_using_online_net = q_func(obs_tp1_input.get(), num_actions, scope="q_func", reuse=True)
-            q_tp1_best_using_online_net = tf.argmax(q_tp1_using_online_net, 1)
-            q_tp1_best = tf.reduce_sum(q_tp1 * tf.one_hot(q_tp1_best_using_online_net, num_actions), 1)
-        else:
-            q_tp1_best = tf.reduce_max(q_tp1, 1)
-        q_tp1_best_masked = (1.0 - done_mask_ph) * q_tp1_best
 
-        # compute RHS of bellman equation
-        q_t_selected_target = rew_t_ph + gamma * q_tp1_best_masked
+        prob = calculate_prob(q_tp1, sigmas_tp1, num_actions)
+        q_target_weighted = tf.reduce_sum(tf.multiply(prob, q_tp1), 1)
+        sigma_target_weighted = tf.reduce_sum(tf.multiply(prob, sigmas_tp1), 1)
+
+        best_target = tf.argmax(q_tp1, axis=1)
+        q_target_mean = tf.reduce_max(q_tp1, 1)
+        sigma_target_mean = sigmas_tp1[best_target]
+
+        q_target_unmasked = tf.cond(weighted_update_ph, lambda: q_target_weighted, lambda: q_target_mean)
+        sigma_target_unmasked = tf.cond(weighted_update_ph, lambda: sigma_target_weighted, lambda: sigma_target_mean)
+
+        q_target_masked = (1.0 - done_mask_ph) * q_target_unmasked
+        sigma_target_masked = (1.0 - done_mask_ph) * sigma_target_unmasked
+        q_target = rew_t_ph + gamma * q_target_masked
+
+        sigma_target = gamma * sigma_target_masked
 
         # compute the error (potentially clipped)
-        td_error = q_t_selected - tf.stop_gradient(q_t_selected_target)
+        td_error = (q_t_selected - tf.stop_gradient(q_target)) ** 2 +\
+                   (sigma_t_selected - tf.stop_gradient(sigma_target)) ** 2
         errors = U.huber_loss(td_error)
-        weighted_error = tf.reduce_mean(importance_weights_ph * errors)
+        #weighted_error = tf.reduce_mean(importance_weights_ph * errors)
 
         # compute optimization op (potentially with gradient clipping)
         if grad_norm_clipping is not None:
-            gradients = optimizer.compute_gradients(weighted_error, var_list=q_func_vars)
+            gradients = optimizer.compute_gradients(errors, var_list=q_func_vars)
+
             for i, (grad, var) in enumerate(gradients):
                 if grad is not None:
                     gradients[i] = (tf.clip_by_norm(grad, grad_norm_clipping), var)
             optimize_expr = optimizer.apply_gradients(gradients)
         else:
-            optimize_expr = optimizer.minimize(weighted_error, var_list=q_func_vars)
+            optimize_expr = optimizer.minimize(errors, var_list=q_func_vars)
+
 
         # update_target_fn will be called periodically to copy Q network to target Q network
         update_target_expr = []
@@ -437,13 +462,52 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
                 rew_t_ph,
                 obs_tp1_input,
                 done_mask_ph,
-                importance_weights_ph
+                importance_weights_ph,
+                weighted_update_ph,
             ],
-            outputs=td_error,
+            outputs=[td_error, q_t, sigma_t, q_tp1, sigmas_tp1, prob, q_target],
+            givens={weighted_update_ph: True},
             updates=[optimize_expr]
         )
         update_target = U.function([], [], updates=[update_target_expr])
 
-        q_values = U.function([obs_t_input], q_t)
+        q_values = U.function(inputs=[obs_t_input], outputs=[q_t, sigma_t])
+        target_q_values = U.function(inputs=[obs_tp1_input], outputs=[q_tp1, sigmas_tp1])
+        return act_f, train, update_target, {'q_values': q_values ,
+                                             'target_q_values': target_q_values}
 
-        return act_f, train, update_target, {'q_values': q_values}
+
+def calculate_prob(qs,sigmas, num_actions):
+
+    qs_and_sigmas_target = tf.stack([qs, sigmas], axis=2)
+
+    def integrate(qs_and_sigmas):
+        qs = qs_and_sigmas[:, 0]
+
+        sigmas = qs_and_sigmas[:, 1]
+        lower_limit = qs - 8 * sigmas
+        upper_limit = qs + 8 * sigmas
+        n_trapz = 100
+        probs = []
+
+        for a in range(num_actions):
+
+            def f(x):
+                p = 1
+                p *= tf.distributions.Normal(loc=qs[a], scale=sigmas[a]).prob(x)
+                for k in range(num_actions):
+                    if k != a:
+                        p *= tf.distributions.Normal(loc=qs[k], scale=sigmas[k]).cdf(x)
+                return p
+
+            x = tf.lin_space(lower_limit[a], upper_limit[a], n_trapz)
+            y = f(x)
+            probs.append(((upper_limit[a] - lower_limit[a]) / (2 * (n_trapz - 1))) * \
+                         (y[0] + y[-1] + 2 * tf.reduce_sum(y[1:-1], axis=0)))
+        p = tf.reshape(tf.stack(probs), [num_actions])
+        return p
+
+    tensor_type = tf.placeholder(tf.float32, [num_actions])
+    return tf.map_fn(integrate, qs_and_sigmas_target, dtype=tensor_type.dtype)
+
+

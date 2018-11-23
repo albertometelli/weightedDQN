@@ -256,8 +256,9 @@ class WeightedGaussianPolicy(TDPolicy):
                 else:
                     q_list = self._approximator.predict(state).squeeze()
 
-                prob = WeightedGaussianPolicy._compute_prob_max(q_list)
-                max_a = np.array([np.random.choice(np.argwhere(prob == np.max(prob)).ravel())])
+                qs = np.array(q_list)
+                means = qs[0, :]
+                max_a = np.array([np.random.choice(np.argwhere(means == np.max(means)).ravel())])
                 return max_a
             else:
                 if isinstance(self._approximator.model, list):
