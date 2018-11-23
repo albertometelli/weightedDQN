@@ -22,6 +22,8 @@ def main():
     arg_utils = parser.add_argument_group('Utils')
     arg_utils.add_argument("--device", type=int, default=0,
                            help='Index of the GPU.')
+    arg_utils.add_argument("--mean_update", action='store_true')
+
     args = parser.parse_args()
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
@@ -52,6 +54,7 @@ def main():
         convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
         hiddens=[256],
         dueling=False,
+        weighted=not args.mean_update,
         checkpoint_path="deepq_logs/Breakout"
     )
 
