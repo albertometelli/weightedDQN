@@ -55,7 +55,7 @@ def main():
         hiddens=[256],
         dueling=False,
         weighted_update=not args.mean_update,
-        checkpoint_path="deepq_logs/Breakout"
+        checkpoint_path="deepq_logs/Breakout/"+("mean_update" if args.mean_update else "weighted_update")
     )
 
     model.save('breakout_model.pkl')
