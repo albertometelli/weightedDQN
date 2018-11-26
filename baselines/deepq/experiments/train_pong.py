@@ -1,4 +1,6 @@
 import sys
+import argparse
+import os
 sys.path.append('..')
 sys.path.append('../..')
 sys.path.append('../../..')
@@ -13,6 +15,14 @@ from baselines.common.atari_wrappers import make_atari
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    arg_utils = parser.add_argument_group('Utils')
+    arg_utils.add_argument("--device", type=int, default=3,
+                           help='Index of the GPU.')
+
+    args = parser.parse_args()
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
     logger.configure()
     env = make_atari('BreakoutNoFrameskip-v4')
     env = bench.Monitor(env, logger.get_dir())
