@@ -23,7 +23,8 @@ def main():
     arg_utils.add_argument("--device", type=int, default=3,
                            help='Index of the GPU.')
     arg_utils.add_argument("--mean_update", action='store_true')
-
+    arg_utils.add_argument("--verbose", action='store_true')
+    arg_utils.add_argument("--interactive", action='store_true')
     args = parser.parse_args()
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
@@ -47,12 +48,14 @@ def main():
         train_freq=4,
         learning_starts=50000,
         eval_freq=250000,
-        eval_timesteps=1,
+        eval_timesteps=125000,
+        verbose=args.verbose,
+        interactive=args.interactive,
         eval_policy=eval_policy_closure,
         target_network_update_freq=10000,
         gamma=0.99,
         convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
-        hiddens=[256],
+        hiddens=[512],
         dueling=False,
         weighted_update=not args.mean_update,
         checkpoint_path="deepq_logs/Breakout/"+("mean_update" if args.mean_update else "weighted_update")

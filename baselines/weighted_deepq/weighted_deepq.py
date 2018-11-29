@@ -288,7 +288,16 @@ def learn(env,
                 kwargs['reset'] = reset
                 kwargs['update_param_noise_threshold'] = update_param_noise_threshold
                 kwargs['update_param_noise_scale'] = True
-            action = act(np.array(obs)[None], update_eps=update_eps, update_eval=0, **kwargs)[0]
+            q_val, sigma_val, action, samples, eps = act(np.array(obs)[None], update_eps=update_eps, eval_flag=False, **kwargs)
+            if verbose:
+                print("Q values: {}".format(q_val))
+                print("Sigma values: {}".format(sigma_val))
+                print("Action: {}".format(action))
+                print("Samples: {}".format(samples))
+                print("Epsilon: {}".format(eps))
+
+            if interactive:
+                input()
             env_action = action
             reset = False
             new_obs, rew, done, _ = env.step(env_action)
@@ -367,7 +376,8 @@ def learn(env,
                 #save_variables(checkpoint_name)
 
                 def pi_wrapper(ob):
-                    a = act(np.array(ob)[None], update_eps=0, update_eval=1, **kwargs)[0]
+                    a = act(np.array(ob)[None], update_eps=0, eval_flag=True, **kwargs)[2]
+
                     return a
 
                 rew_eval, _, = eval_policy(pi=pi_wrapper, n_timesteps=eval_timesteps, verbose=False)

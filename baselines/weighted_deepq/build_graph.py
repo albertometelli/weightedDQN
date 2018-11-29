@@ -176,11 +176,10 @@ def build_act(make_obs_ph, q_func, num_actions, scope="deepq", reuse=None):
     with tf.variable_scope(scope, reuse=reuse):
         observations_ph = make_obs_ph("observation")
         stochastic_ph = tf.placeholder(tf.bool, (), name="stochastic")
-        update_eval_ph = tf.placeholder(tf.float32, (), name="update_eval")
         update_eps_ph = tf.placeholder(tf.float32, (), name="update_eps")
 
         eps = tf.get_variable("eps", (), initializer=tf.constant_initializer(0))
-        eval_var = tf.get_variable("eval", (), dtype=tf.bool, initializer=tf.constant_initializer(False, dtype=tf.bool))
+        eval_ph = tf.placeholder(tf.bool, (), name="eval_ph")
 
         q_values, sigma_values = q_func(observations_ph.get(), num_actions, scope="q_func")
         deterministic_actions = tf.argmax(q_values, axis=1)
@@ -194,23 +193,18 @@ def build_act(make_obs_ph, q_func, num_actions, scope="deepq", reuse=None):
         stochastic_actions = tf.where(chose_random, random_actions, sampled_actions)
         output_actions = tf.cond(stochastic_ph, lambda: stochastic_actions, lambda: sampled_actions)
 
-        actions = tf.cond(eval_var, lambda: deterministic_actions, lambda: output_actions)
+        actions = tf.cond(eval_ph, lambda: deterministic_actions, lambda: output_actions)
 
         update_eps_expr = eps.assign(tf.cond(update_eps_ph >= 0, lambda: update_eps_ph, lambda: eps))
-        '''
-            Update_eval -1: Don't change
-            Update_eval 0: Set to False
-            Update_eval 1: Set to True
-        '''
-        update_eval_expr = eval_var.assign(tf.cond(update_eval_ph < 0, lambda: eval_var,
-                                                   lambda: tf.cond(update_eps_ph > 0, lambda: True, lambda:False)))
-        _act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph, update_eval_ph],
-                          outputs=actions,
-                          givens={update_eps_ph: -1.0, stochastic_ph: True, update_eval_ph: -1.0},
-                          updates=[update_eps_expr, update_eval_expr])
 
-        def act(ob, stochastic=True, update_eps=-1, update_eval=-1):
-            return _act(ob, stochastic, update_eps, update_eval)
+        _act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph, eval_ph],
+                          outputs=[q_values, sigma_values, actions, q_samples, eps],
+                          givens={update_eps_ph: -1.0, stochastic_ph: True},
+                          updates=[update_eps_expr])
+
+        def act(ob, stochastic=True, update_eps=-1, eval_flag=False):
+
+            return _act(ob, stochastic, update_eps, eval_flag)
         return act
 
 

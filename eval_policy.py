@@ -12,6 +12,7 @@ def eval_atari(env, pi, n_timesteps, verbose=True):
 
     for i in range(n_timesteps):
         a = pi(s)
+
         ns, r, done, inf = env.step(a)
         s = ns
         rew += r
