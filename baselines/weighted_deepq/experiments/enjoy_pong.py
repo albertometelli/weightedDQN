@@ -1,12 +1,4 @@
 import gym
-import sys
-sys.path.append('..')
-sys.path.append('../..')
-sys.path.append('../../..')
-try:
-    sys.path.remove('/home/alberto/baselines')
-except:
-    print("")
 from baselines import deepq
 
 
@@ -15,11 +7,11 @@ def main():
     env = deepq.wrap_atari_dqn(env)
     model = deepq.learn(
         env,
-        network="conv_only",
-        total_timesteps=0,
+        "conv_only",
         convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
         hiddens=[256],
         dueling=True,
+        total_timesteps=0
     )
 
     while True:

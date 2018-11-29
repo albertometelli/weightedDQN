@@ -5,19 +5,20 @@ import tensorflow as tf
 import zipfile
 import cloudpickle
 import numpy as np
-
+import time
 import baselines.common.tf_util as U
 from baselines.common.tf_util import load_variables, save_variables
 from baselines import logger
 from baselines.common.schedules import LinearSchedule
 from baselines.common import set_global_seeds
 
-from baselines import deepq
+from baselines import weighted_deepq
 from baselines.deepq.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 from baselines.deepq.utils import ObservationInput
 
 from baselines.common.tf_util import get_session
-from baselines.deepq.models import build_q_func
+from baselines.weighted_deepq.models import build_weighted_q_func
+
 
 
 class ActWrapper(object):
@@ -30,7 +31,7 @@ class ActWrapper(object):
     def load_act(path):
         with open(path, "rb") as f:
             model_data, act_params = cloudpickle.load(f)
-        act = deepq.build_act(**act_params)
+        act = weighted_deepq.build_act(**act_params)
         sess = tf.Session()
         sess.__enter__()
         with tempfile.TemporaryDirectory() as td:
@@ -114,8 +115,14 @@ def learn(env,
           prioritized_replay_beta_iters=None,
           prioritized_replay_eps=1e-6,
           param_noise=False,
+          eval_freq=None,
+          eval_timesteps=50000,
+          weighted_update=True,
           callback=None,
           load_path=None,
+          eval_policy=None,
+          verbose=False,
+          interactive=False,
           **network_kwargs
             ):
     """Train a deepq model.
@@ -190,7 +197,8 @@ def learn(env,
     sess = get_session()
     set_global_seeds(seed)
 
-    q_func = build_q_func(network, **network_kwargs)
+    q_func = build_weighted_q_func(network, **network_kwargs)
+
 
     # capture the shape outside the closure so that the env object is not serialized
     # by cloudpickle when serializing make_obs_ph
@@ -199,7 +207,7 @@ def learn(env,
     def make_obs_ph(name):
         return ObservationInput(observation_space, name=name)
 
-    act, train, update_target, debug = deepq.build_train(
+    act, train, update_target, debug = weighted_deepq.build_train(
         make_obs_ph=make_obs_ph,
         q_func=q_func,
         num_actions=env.action_space.n,
@@ -230,7 +238,7 @@ def learn(env,
         beta_schedule = None
     # Create the schedule for exploration starting from 1.
     exploration = LinearSchedule(schedule_timesteps=int(exploration_fraction * total_timesteps),
-                                 initial_p=1.0,
+                                 initial_p=exploration_final_eps,
                                  final_p=exploration_final_eps)
 
     # Initialize the parameters and copy them to the target network.
@@ -241,7 +249,11 @@ def learn(env,
     saved_mean_reward = None
     obs = env.reset()
     reset = True
-
+    eval_count = 0
+    best_rew = -np.inf
+    eval_rewards = []
+    scores_file = checkpoint_path + '/scores_' + str(time.time())
+    first_eval = True
     with tempfile.TemporaryDirectory() as td:
         td = checkpoint_path or td
 
@@ -276,7 +288,16 @@ def learn(env,
                 kwargs['reset'] = reset
                 kwargs['update_param_noise_threshold'] = update_param_noise_threshold
                 kwargs['update_param_noise_scale'] = True
-            action = act(np.array(obs)[None], update_eps=update_eps, **kwargs)[0]
+            q_val, sigma_val, action, samples, eps = act(np.array(obs)[None], update_eps=update_eps, eval_flag=False, **kwargs)
+            if verbose:
+                print("Q values: {}".format(q_val))
+                print("Sigma values: {}".format(sigma_val))
+                print("Action: {}".format(action))
+                print("Samples: {}".format(samples))
+                print("Epsilon: {}".format(eps))
+
+            if interactive:
+                input()
             env_action = action
             reset = False
             new_obs, rew, done, _ = env.step(env_action)
@@ -298,10 +319,31 @@ def learn(env,
                 else:
                     obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(batch_size)
                     weights, batch_idxes = np.ones_like(rewards), None
-                td_errors = train(obses_t, actions, rewards, obses_tp1, dones, weights)
+
+                td_errors, train_qs, train_sigmas, target_qs, target_sigmas, prob, target = train(obses_t, actions, rewards, obses_tp1, dones, weights, weighted_update)
+                if verbose:
+                    print("TD-Errors:")
+                    print(td_errors)
+                    print("Train Qs:")
+                    print(train_qs)
+                    print("Train Sigmas:")
+                    print(train_sigmas)
+                    print("Target Qs:")
+                    print(target_qs)
+                    print("Target sigmas:")
+                    print(target_sigmas)
+                    print("Prob")
+                    print(prob)
+                    print("Target")
+                    print(target)
+                if interactive:
+                    input()
+
                 if prioritized_replay:
                     new_priorities = np.abs(td_errors) + prioritized_replay_eps
                     replay_buffer.update_priorities(batch_idxes, new_priorities)
+                if first_eval:
+                    first_eval = False
 
             if t > learning_starts and t % target_network_update_freq == 0:
                 # Update target network periodically.
@@ -325,6 +367,29 @@ def learn(env,
                     save_variables(model_file)
                     model_saved = True
                     saved_mean_reward = mean_100ep_reward
+
+            if  eval_freq is not None and t % eval_freq == 0:
+                print("Start eval of {} timesteps, with model after {} steps of training:".format(eval_timesteps, t))
+                if not os.path.exists(checkpoint_path):
+                    os.makedirs(checkpoint_path)
+                checkpoint_name = checkpoint_path + 'checkpoint_eps_' + str(eval_count)
+                #save_variables(checkpoint_name)
+
+                def pi_wrapper(ob):
+                    a = act(np.array(ob)[None], update_eps=0, eval_flag=True, **kwargs)[2]
+
+                    return a
+
+                rew_eval, _, = eval_policy(pi=pi_wrapper, n_timesteps=eval_timesteps, verbose=False)
+                eval_rewards.append(rew_eval)
+                np.save(scores_file, eval_rewards)
+                print("Finished eval:   Score:{}".format(rew_eval))
+                if rew_eval > best_rew:
+                    print("New best model with evaluation saved")
+                    checkpoint_name = checkpoint_path + 'best_eval'
+                    save_variables(checkpoint_name)
+                    best_rew = rew_eval
+                eval_count += 1
         if model_saved:
             if print_freq is not None:
                 logger.log("Restored model with mean reward: {}".format(saved_mean_reward))

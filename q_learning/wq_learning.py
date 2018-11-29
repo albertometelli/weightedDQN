@@ -82,7 +82,7 @@ class ParticleQLearning(Particle):
                     mean_next = np.sum(mean_next_all * prob)
                     with np.errstate(over='raise'):
                         try:
-                            sigma_next = np.sum(sigma_next_all * prob)
+                            sigma_next = np.sum((sigma_next_all + (mean_next - mean_next_all) ** 2) * prob)
                         except FloatingPointError:
                             print(prob)
                             print(sigma_next_all)
@@ -143,7 +143,7 @@ class ParticleDoubleQLearning(Particle):
                 elif self._update_type == 'weighted':
                     prob = ParticleQLearning._compute_prob_max(mean_next_all, sigma_next_all)
                     mean_next = np.sum(mean_next_all_2 * prob)
-                    sigma_next = np.sum(sigma_next_all_2 * prob)
+                    sigma_next = np.sum((sigma_next_all_2 + (mean_next - mean_next_all_2) ** 2) * prob)
 
                 else:
                     raise ValueError()

@@ -138,3 +138,39 @@ def build_q_func(network, hiddens=[256], dueling=True, layer_norm=False, **netwo
             return q_out
 
     return q_func_builder
+
+
+def build_weighted_q_func(network, hiddens=[256], dueling=True, layer_norm=False, **network_kwargs):
+    if isinstance(network, str):
+        from baselines.common.models import get_network_builder
+        network = get_network_builder(network)(**network_kwargs)
+
+    def q_func_builder(input_placeholder, num_actions, scope, reuse=False):
+        with tf.variable_scope(scope, reuse=reuse):
+            latent = network(input_placeholder)
+            if isinstance(latent, tuple):
+                if latent[1] is not None:
+                    raise NotImplementedError("DQN is not compatible with recurrent policies yet")
+                latent = latent[0]
+
+            latent = layers.flatten(latent)
+
+            with tf.variable_scope("action_value"):
+                action_out = latent
+                sigma_out = latent
+                for hidden in hiddens:
+                    action_out = layers.fully_connected(action_out, num_outputs=hidden, activation_fn=None)
+                    sigma_out = layers.fully_connected(sigma_out, num_outputs=hidden)
+                    if layer_norm:
+                        action_out = layers.layer_norm(action_out, center=True, scale=True)
+                    action_out = tf.nn.relu(action_out)
+                action_scores = layers.fully_connected(action_out, num_outputs=num_actions, activation_fn=None)
+                log_sigmas = layers.fully_connected(sigma_out, num_outputs=num_actions, activation_fn=None)
+                sigmas = tf.exp(log_sigmas)
+
+
+                q_out = action_scores
+            return q_out, sigmas
+
+    return q_func_builder
+
