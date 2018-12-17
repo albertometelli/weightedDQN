@@ -17,7 +17,7 @@ from baselines.deepq.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 from baselines.deepq.utils import ObservationInput
 
 from baselines.common.tf_util import get_session
-from baselines.weighted_deepq.models import build_weighted_q_func
+from baselines.weighted_deepq.models import build_weighted_q_func, build_q_func
 
 
 
@@ -96,18 +96,23 @@ def load_act(path):
 def learn(env,
           network,
           seed=None,
-          lr=5e-4,
+          lr_q=5e-4,
+          lr_sigma=5e-7,
+          sigma_weight=0.1,
           total_timesteps=100000,
           buffer_size=50000,
+          optimizer="Adam",
+          momentum=0.9,
           exploration_fraction=0.1,
           exploration_final_eps=0.02,
           train_freq=1,
+          double_network=False,
           batch_size=32,
           print_freq=100,
           checkpoint_freq=10000,
           checkpoint_path=None,
           learning_starts=1000,
-          gamma=1.0,
+          gamma=0.99,
           target_network_update_freq=500,
           prioritized_replay=False,
           prioritized_replay_alpha=0.6,
@@ -197,8 +202,14 @@ def learn(env,
     sess = get_session()
     set_global_seeds(seed)
 
-    q_func = build_weighted_q_func(network, **network_kwargs)
 
+
+    if double_network:
+        build_train = weighted_deepq.build_train_double
+        q_func = build_q_func(network, **network_kwargs)
+    else:
+        build_train = weighted_deepq.build_train
+        q_func = build_weighted_q_func(network, **network_kwargs)
 
     # capture the shape outside the closure so that the env object is not serialized
     # by cloudpickle when serializing make_obs_ph
@@ -207,16 +218,31 @@ def learn(env,
     def make_obs_ph(name):
         return ObservationInput(observation_space, name=name)
 
-    act, train, update_target, debug = weighted_deepq.build_train(
+    optimizer_params = {
+        'learning_rate': lr_sigma,
+    }
+    optimizer_dict = {
+        "Adam": (tf.train.AdamOptimizer, optimizer_params),
+        "Momentum": (tf.train.MomentumOptimizer, {"momentum": momentum, **optimizer_params}),
+        "SGD": (tf.train.GradientDescentOptimizer, optimizer_params),
+        "RmsProp": (tf.train.RMSPropOptimizer, optimizer_params)
+    }
+
+    opt = optimizer_dict[optimizer]
+    act, train, update_target, debug = build_train(
         make_obs_ph=make_obs_ph,
         q_func=q_func,
         num_actions=env.action_space.n,
-        optimizer=tf.train.AdamOptimizer(learning_rate=lr),
+        optimizer=opt[0](learning_rate=lr_q),
+        sigma_optimizer=opt[0](**opt[1]),
+        sigma_weight=sigma_weight,
         gamma=gamma,
         grad_norm_clipping=10,
-        param_noise=param_noise
     )
-
+    train_writer = tf.summary.FileWriter(checkpoint_path + 'summaries/train/' + optimizer +
+                                         "/" + ("double_net/" if double_network else "single_net/")
+                                         + str(lr_sigma) + "/" + str(time.time()),
+                                         sess.graph)
     act_params = {
         'make_obs_ph': make_obs_ph,
         'q_func': q_func,
@@ -254,6 +280,7 @@ def learn(env,
     eval_rewards = []
     scores_file = checkpoint_path + '/scores_' + str(time.time())
     first_eval = True
+    train_count = 0
     with tempfile.TemporaryDirectory() as td:
         td = checkpoint_path or td
 
@@ -289,6 +316,8 @@ def learn(env,
                 kwargs['update_param_noise_threshold'] = update_param_noise_threshold
                 kwargs['update_param_noise_scale'] = True
             q_val, sigma_val, action, samples, eps = act(np.array(obs)[None], update_eps=update_eps, eval_flag=False, **kwargs)
+            #train_writer.add_summary(merged, t)
+
             if verbose:
                 print("Q values: {}".format(q_val))
                 print("Sigma values: {}".format(sigma_val))
@@ -320,7 +349,7 @@ def learn(env,
                     obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(batch_size)
                     weights, batch_idxes = np.ones_like(rewards), None
 
-                td_errors, train_qs, train_sigmas, target_qs, target_sigmas, prob, target = train(obses_t, actions, rewards, obses_tp1, dones, weights, weighted_update)
+                td_errors, train_qs, train_sigmas, target_qs, target_sigmas, prob, target, summaries = train(obses_t, actions, rewards, obses_tp1, dones, weights, weighted_update)
                 if verbose:
                     print("TD-Errors:")
                     print(td_errors)
@@ -339,6 +368,17 @@ def learn(env,
                 if interactive:
                     input()
 
+                if (np.sum(prob, axis=1) > 1.2).any():
+                    print("Prob")
+                    print(np.sum(prob, axis=1))
+                    input()
+
+                if (np.sum(prob, axis=1) < 0.9).any():
+                    print("Prob")
+                    print(np.sum(prob, axis=1))
+                    input()
+                train_writer.add_summary(summaries, train_count)
+                train_count += 1
                 if prioritized_replay:
                     new_priorities = np.abs(td_errors) + prioritized_replay_eps
                     replay_buffer.update_priorities(batch_idxes, new_priorities)
@@ -376,7 +416,7 @@ def learn(env,
                 #save_variables(checkpoint_name)
 
                 def pi_wrapper(ob):
-                    a = act(np.array(ob)[None], update_eps=0, eval_flag=True, **kwargs)[2]
+                    a = act(np.array(ob)[None], update_eps=.005, eval_flag=True, **kwargs)[2]
 
                     return a
 

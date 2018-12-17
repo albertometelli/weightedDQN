@@ -305,8 +305,9 @@ def build_act_with_param_noise(make_obs_ph, q_func, num_actions, scope="deepq", 
             tf.cond(update_param_noise_scale_ph, lambda: update_scale(), lambda: tf.Variable(0., trainable=False)),
             update_param_noise_threshold_expr,
         ]
+
         _act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph, reset_ph, update_param_noise_threshold_ph, update_param_noise_scale_ph],
-                         outputs=output_actions,
+                         outputs=output_actions ,
                          givens={update_eps_ph: -1.0, stochastic_ph: True, reset_ph: False, update_param_noise_threshold_ph: False, update_param_noise_scale_ph: False},
                          updates=updates)
         def act(ob, reset=False, update_param_noise_threshold=False, update_param_noise_scale=False, stochastic=True, update_eps=-1):
@@ -428,7 +429,15 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
                                    sorted(target_q_func_vars, key=lambda v: v.name)):
             update_target_expr.append(var_target.assign(var))
         update_target_expr = tf.group(*update_target_expr)
-
+        with tf.name_scope('train_summaries'):
+            tf.summary.scalar("loss", tf.reduce_mean(weighted_error))
+            tf.summary.tensor_summary("q", tf.reduce_mean(q_t, axis=1))
+            tf.summary.scalar("average_q", tf.reduce_mean(q_t))
+            tf.summary.scalar("average_q_target", tf.reduce_mean(q_tp1))
+            #tf.summary.scalar("average_sigma_gradient", tf.reduce_mean(gradients))
+            #tf.summary.scalar("average_sigma_gradient2", tf.reduce_mean(sigma_gradients))
+            tf.summary.histogram('qs', q_t)
+        merged = tf.summary.merge_all()
         # Create callable functions
         train = U.function(
             inputs=[
@@ -439,7 +448,7 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=
                 done_mask_ph,
                 importance_weights_ph
             ],
-            outputs=td_error,
+            outputs=[td_error, merged],
             updates=[optimize_expr]
         )
         update_target = U.function([], [], updates=[update_target_expr])

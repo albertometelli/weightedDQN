@@ -82,6 +82,8 @@ class ParticleQLearning(Particle):
                     mean_next = np.sum(mean_next_all * prob)
                     with np.errstate(over='raise'):
                         try:
+                            if self.minimize_wasserstein:
+                                sigma_next = np.sum(prob * sigma_next_all)
                             sigma_next = np.sum((sigma_next_all + (mean_next - mean_next_all) ** 2) * prob)
                         except FloatingPointError:
                             print(prob)
