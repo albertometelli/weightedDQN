@@ -2,6 +2,8 @@ import argparse
 import os
 import sys
 import numpy as np
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import tensorflow as tf
 sys.path.append('..')
 sys.path.append('../..')
@@ -17,7 +19,7 @@ from eval_policy import eval_atari
 
 def main():
     np.random.seed()
-
+    # Disable tf cpp warnings
     # Argument parser
     parser = argparse.ArgumentParser()
     arg_utils = parser.add_argument_group('Utils')
@@ -25,15 +27,24 @@ def main():
                            help='Index of the GPU.')
     arg_utils.add_argument("--verbose", action='store_true')
     arg_utils.add_argument("--interactive", action='store_true')
-
+    arg_utils.add_argument("--eval_timesteps", type=int, default=65000,
+                           help='Number of evaluation steps')
     arg_alg = parser.add_argument_group('Algorithm')
     arg_alg.add_argument("--name",
                          default='BreakoutNoFrameskip-v4',
                          help='Atari game to play')
     arg_alg.add_argument("--mean_update", action='store_true')
     arg_alg.add_argument("--particle", action='store_true')
-    arg_utils.add_argument("--k", type=int, default=10,
+    arg_alg.add_argument("--k", type=int, default=10,
                            help='Number of particles in the particle algorithm')
+    arg_alg.add_argument("--train_freq", type=int, default=4,
+                         help='number of steps to perform an update')
+    arg_alg.add_argument("--update_target_freq", type=int, default=2000,
+                         help='frequency of update of target network')
+    arg_alg.add_argument("--buffer_size", type=int, default=100000,
+                           help='Number of evaluation steps')
+    arg_alg.add_argument("--learning_starts", type=int, default=100000,
+                           help='Number of evaluation steps')
     arg_alg.add_argument("--double_networks", action='store_true')
     arg_opt = parser.add_argument_group('Optimizer')
     arg_opt.add_argument("--lr_q", type=float, default=1e-4,
@@ -57,7 +68,6 @@ def main():
                           help='Optimizer for the sigma variables')
 
     args = parser.parse_args()
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
     logger.configure()
     env = make_atari(args.name)
@@ -69,24 +79,30 @@ def main():
     def eval_policy_closure(**args):
         return eval_atari(eval_env, **args)
 
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    config.gpu_options.allow_growth = True
+
+
     algorithm_params = dict(env=env,
                             network="conv_only",
+                            config=config,
                             lr_q=args.lr_q,
                             optimizer=args.optimizer,
                             momentum=args.momentum,
                             total_timesteps=int(2e8),
                             batch_size=32,
-                            buffer_size=100000,
+                            buffer_size=args.buffer_size,
                             exploration_fraction=0.1,
                             exploration_final_eps=0.01,
-                            train_freq=4,
-                            learning_starts=100000,
+                            train_freq=args.train_freq,
+                            learning_starts=args.learning_starts,
                             eval_freq=250000,
-                            eval_timesteps=65000,
+                            eval_timesteps=args.eval_timesteps,
                             verbose=args.verbose,
                             interactive=args.interactive,
                             eval_policy=eval_policy_closure,
-                            target_network_update_freq=10000,
+                            target_network_update_freq=args.update_target_freq,
                             gamma=0.99,
                             convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
                             hiddens=[512],
@@ -99,13 +115,13 @@ def main():
     if args.particle:
         learn_func = weighted_deepq.particle_learn
         algorithm_params = dict(k=args.k,
+                                q_max=args.q_max,
                                 **algorithm_params)
     else:
         learn_func = weighted_deepq.learn
         algorithm_params = dict(lr_sigma=args.lr_sigma,
                                 sigma_weight=args.sigma_weight,
                                 double_network=args.double_networks,
-                                q_max=args.q_max,
                                 **algorithm_params)
     model = learn_func(**algorithm_params)
 

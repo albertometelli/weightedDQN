@@ -107,6 +107,7 @@ def learn(env,
           checkpoint_path=None,
           learning_starts=1000,
           gamma=1.0,
+          grad_norm_clipping=True,
           eval_freq=None,
           eval_timesteps=65000,
           eval_policy=None,
@@ -201,14 +202,17 @@ def learn(env,
     observation_space = env.observation_space
     def make_obs_ph(name):
         return ObservationInput(observation_space, name=name)
-
+    if grad_norm_clipping:
+        norm = 10
+    else:
+        norm = None
     act, train, update_target, debug = deepq.build_train(
         make_obs_ph=make_obs_ph,
         q_func=q_func,
         num_actions=env.action_space.n,
         optimizer=tf.train.AdamOptimizer(learning_rate=lr),
         gamma=gamma,
-        grad_norm_clipping=10,
+        grad_norm_clipping=norm,
         param_noise=param_noise
     )
 

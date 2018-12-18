@@ -96,6 +96,7 @@ def load_act(path):
 def learn(env,
           network,
           seed=None,
+          config=None,
           lr_q=5e-4,
           total_timesteps=100000,
           buffer_size=50000,
@@ -229,9 +230,8 @@ def learn(env,
         optimizer=opt(learning_rate=lr_q),
         gamma=gamma,
         k=k,
-        q_max=q_max,
-        grad_norm_clipping=10,
-    )
+        q_max=q_max)
+
     train_writer = tf.summary.FileWriter(checkpoint_path + 'summaries/train/particle/' + optimizer +
                                          "/" + str(time.time()),
                                          sess.graph)
@@ -320,7 +320,9 @@ def learn(env,
                 input()'''
             env_action = action
             reset = False
+
             new_obs, rew, done, _ = env.step(env_action)
+
             # Store transition in the replay buffer.
             replay_buffer.add(obs, action, rew, new_obs, float(done))
             obs = new_obs
@@ -340,25 +342,23 @@ def learn(env,
                     obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(batch_size)
                     weights, batch_idxes = np.ones_like(rewards), None
 
-                td_errors, summaries, selected, target, masked = train(obses_t, actions, rewards, obses_tp1, dones, weighted_update)
+                td_errors, summaries, q, selected, q_target, q_target_unmasked, q_target_masked = train(obses_t, actions, rewards, obses_tp1, dones, weighted_update)
                 if verbose:
-                    print("TD-Errors:")
-                    print(td_errors)
-                    '''print("Train Qs:")
-                    print(train_qs)
-                    print("Target Qs:")
-                    print(target_qs)
-                    print("Prob")
-                    print(prob)
-                    print("Target")
-                    print(target)
-                    '''
-                    print("selected:")
+                    print("Qs:")
+                    print(q)
+                    print("Actions:")
                     print(selected)
-                    print("target")
-                    print(target)
-                    print("masked")
-                    print(masked)
+                    print("Actions passsed:")
+                    print(actions)
+                    print("Q-target:")
+                    print(q_target)
+                    print("Target unmasked:")
+                    print(q_target_unmasked)
+                    print("Target masked:")
+                    print(q_target_masked)
+                    print("Dones passed:")
+                    print(dones)
+                    input()
                 if interactive:
                     input()
                 train_writer.add_summary(summaries, train_count)

@@ -471,17 +471,12 @@ def build_train(make_obs_ph, q_func, num_actions, optimizer, sigma_optimizer,
 
         with tf.name_scope('train_summaries'):
             tf.summary.scalar("loss", tf.reduce_mean(td_error))
-            tf.summary.tensor_summary("q", tf.reduce_mean(q_t, axis=1))
-            tf.summary.tensor_summary("sigma", tf.reduce_mean(sigma_t, axis=1))
             tf.summary.scalar("average_q", tf.reduce_mean(q_t))
             tf.summary.scalar("average_sigma", tf.reduce_mean(sigma_t))
             tf.summary.scalar("average_q_target", tf.reduce_mean(q_tp1))
             tf.summary.scalar("average_sigma_target", tf.reduce_mean(sigmas_tp1))
-            #tf.summary.scalar("average_sigma_gradient", tf.reduce_mean(gradients))
-            #tf.summary.scalar("average_sigma_gradient2", tf.reduce_mean(sigma_gradients))
             tf.summary.histogram('qs', q_t)
             tf.summary.histogram('sigmas', sigma_t)
-            grad_hist = tf.summary.histogram("gradient_hist", g)
         merged = tf.summary.merge_all()
 
 
@@ -585,7 +580,7 @@ def build_act_double(make_obs_ph, q_func, num_actions, scope="deepq", reuse=None
         return act
 
 def build_train_double(make_obs_ph, q_func, num_actions, sigma_optimizer, optimizer,
-                       grad_norm_clipping=None, gamma=0.99, scope="deepq", reuse=None, ):
+                       grad_norm_clipping=None, gamma=0.99, scope="deepq", reuse=None ):
     """Creates the train function:
 
     Parameters
@@ -719,8 +714,6 @@ def build_train_double(make_obs_ph, q_func, num_actions, sigma_optimizer, optimi
 
         with tf.name_scope('train_summaries'):
             tf.summary.scalar("loss", tf.reduce_mean(td_error))
-            tf.summary.tensor_summary("q", tf.reduce_mean(q_t, axis=1))
-            tf.summary.tensor_summary("sigma", tf.reduce_mean(sigma_t, axis=1))
             tf.summary.scalar("average_q", tf.reduce_mean(q_t))
             tf.summary.scalar("average_sigma", tf.reduce_mean(sigma_t))
             tf.summary.histogram('qs', q_t)
@@ -821,7 +814,8 @@ def build_act_particle(make_obs_ph, q_func, num_actions, scope, reuse, k, q_max)
         _act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph, eval_ph],
                           outputs=[q_values, actions, q_samples, eps],
                           givens={update_eps_ph: -1.0, stochastic_ph: True},
-                          updates=[update_eps_expr])
+                          updates=[update_eps_expr],
+                          )
 
         def act(ob, stochastic=True, update_eps=-1, eval_flag=False):
             return _act(ob, stochastic, update_eps, eval_flag)
@@ -902,51 +896,49 @@ def build_train_particle(make_obs_ph, q_func, num_actions, optimizer,
 
         # target q network evalution
         q_tp1 = q_func(obs_tp1_input.get(), num_actions, k=k,  q_max=q_max, scope="target_q_func")
-
         target_q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/target_q_func")
 
-        action_one_hot = tf.one_hot(act_t_ph, num_actions)
+
+
 
         # q scores for actions which we know were selected in the given state.
-        q_t_selected = []
-        for i in range(k):
-            q_t_selected.append(
-                tf.reduce_sum(q_t[i] * action_one_hot, axis=1)
-            )
-        # compute estimate of best possible value starting from state at t + 1
+        action_one_hot = tf.one_hot(act_t_ph, num_actions)
+        q_t_selected = tf.gather(q_t, [i for i in range(len(q_t))])
+        q_t_selected = tf.transpose(q_t_selected, [1, 2, 0])
 
-        q_list = tf.gather(q_tp1, [i for i in range(len(q_tp1))])
-        q_list = tf.transpose(q_list, [1, 2, 0])
-        prob = calculate_prob_particles(q_list, num_actions, k)
-        q_target_weighted = []
+        action_one_hot = tf.expand_dims(action_one_hot, -1)
+        action_one_hot = tf.tile(action_one_hot, [1, 1, k])
+        q_t_selected = tf.reduce_sum(q_t_selected * action_one_hot, axis=1)
 
-        means_target = tf.reduce_mean(q_list, axis=1)
+        q_target_all = tf.gather(q_tp1, [i for i in range(len(q_tp1))])
+        q_target_all = tf.transpose(q_target_all, [1, 2, 0])
+
+        #calculate the weighted target
+        prob = calculate_prob_particles(q_target_all, num_actions, k)
+        prob = tf.expand_dims(prob, -1)
+        prob = tf.tile(prob, [1, 1, k])
+
+        q_target_weighted = tf.reduce_sum(q_target_all * prob, axis=1)
+
+        #calculate max mean target
+        means_target = tf.reduce_mean(q_target_all, axis=2)
         best_target = tf.argmax(means_target, axis=1)
         best_target_one_hot = tf.one_hot(best_target, num_actions)
-        q_target_mean = []
-
-        for i in range(k):
-            q_target_weighted.append(tf.reduce_sum(tf.multiply(prob, q_tp1[i]), 1))
-            q_target_mean.append(tf.reduce_sum(q_tp1[i] * best_target_one_hot, 1))
-
-        '''q_target_weighted = tf.gather(q_target_weighted, [i for i in range(len(q_target_weighted))])
-        q_target_weighted = tf.reshape(q_target_weighted, [tf.shape(q_target_weighted)[1], k])
-
-        q_target_mean = tf.gather(q_target_mean, [i for i in range(len(q_target_mean))])
-        q_target_mean = tf.reshape(q_target_mean, [tf.shape(q_target_mean)[1], k])'''
-
+        best_target_one_hot = tf.expand_dims(best_target_one_hot, -1)
+        best_target_one_hot = tf.tile(best_target_one_hot, [1, 1, k])
+        q_target_mean = tf.reduce_sum(q_target_all * best_target_one_hot, axis=1)
 
         q_target_unmasked = tf.cond(weighted_update_ph, lambda: q_target_weighted, lambda: q_target_mean)
 
-        q_target_masked = (1.0 - done_mask_ph) * q_target_unmasked
+        q_target_masked = tf.tile(tf.expand_dims(1.0 - done_mask_ph, -1), [1, k]) * q_target_unmasked
+        q_target = tf.tile(tf.expand_dims(rew_t_ph, -1), [1, k]) + gamma * q_target_masked
 
-        q_target = rew_t_ph + gamma * q_target_masked
-        q_selected_sorted = tf.contrib.framework.sort(q_t_selected, axis=0)
-        q_target_sorted = tf.contrib.framework.sort(q_target, axis=0)
+        #sort the particles
+        q_selected_sorted = tf.contrib.framework.sort(q_t_selected, axis=1)
+        q_target_sorted = tf.contrib.framework.sort(q_target, axis=1)
+
         # compute the error (potentially clipped)
-        td_error = 0
-        for i in range(k):
-            td_error += (q_selected_sorted[i] - q_target_sorted[i])
+        td_error = tf.reduce_sum(q_selected_sorted - q_target_sorted, axis=1)
         errors = U.huber_loss(td_error)
 
         # compute optimization op (potentially with gradient clipping)
@@ -958,21 +950,13 @@ def build_train_particle(make_obs_ph, q_func, num_actions, optimizer,
                     gradients[i] = (tf.clip_by_norm(grad, grad_norm_clipping), var)
         optimize_expr = optimizer.apply_gradients(gradients)
 
-        g = tf.reshape(gradients[0], [-1, 1])
-        for i, grad in enumerate(gradients):
-            if i != 0:
-                col_vec = tf.reshape(gradients[i], [-1, 1])
-                g = tf.concat([g, col_vec], axis=0)
 
         with tf.name_scope('train_summaries'):
             tf.summary.scalar("loss", tf.reduce_mean(td_error))
-            tf.summary.tensor_summary("q", tf.reduce_mean(q_t, axis=1))
             tf.summary.scalar("average_q", tf.reduce_mean(q_t))
             tf.summary.scalar("average_q_target", tf.reduce_mean(q_tp1))
             tf.summary.histogram('qs', q_t)
-            grad_hist = tf.summary.histogram("gradient_hist", g)
         merged = tf.summary.merge_all()
-
 
         # update_target_fn will be called periodically to copy Q network to target Q network
         update_target_expr = []
@@ -991,7 +975,7 @@ def build_train_particle(make_obs_ph, q_func, num_actions, optimizer,
                 done_mask_ph,
                 weighted_update_ph,
             ],
-            outputs=[td_error, merged, q_selected_sorted, q_target_sorted, q_target_masked],
+            outputs=[td_error, merged, q_t, q_t_selected, q_tp1, q_target_unmasked, q_target_masked],
             updates=[optimize_expr]
         )
 

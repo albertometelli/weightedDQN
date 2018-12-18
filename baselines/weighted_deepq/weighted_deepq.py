@@ -95,6 +95,7 @@ def load_act(path):
 
 def learn(env,
           network,
+          config=None,
           seed=None,
           lr_q=5e-4,
           lr_sigma=5e-7,

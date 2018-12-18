@@ -20,6 +20,7 @@ def main():
     arg_utils = parser.add_argument_group('Utils')
     arg_utils.add_argument("--device", type=int, default=3,
                            help='Index of the GPU.')
+    arg_utils.add_argument("--grad_norm", action='store_true')
 
     args = parser.parse_args()
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
@@ -44,7 +45,7 @@ def main():
         exploration_final_eps=0.01,
         train_freq=4,
         learning_starts=100000,
-        target_network_update_freq=10000,
+        target_network_update_freq=2000,
         eval_freq=250000,
         eval_timesteps=65000,
         eval_policy=eval_policy_closure,
@@ -52,7 +53,8 @@ def main():
         gamma=0.99,
         convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
         hiddens=[256],
-        dueling=True
+        dueling=True,
+        grad_norm_clipping=args.grad_norm
     )
 
     model.save('pong_model.pkl')

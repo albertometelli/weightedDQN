@@ -49,11 +49,11 @@ def huber_loss(x, delta=1.0):
 # Global session
 # ================================================================
 
-def get_session(config=None):
+def get_session(config=None, make_default=True):
     """Get default session or create one with a given config"""
     sess = tf.get_default_session()
     if sess is None:
-        sess = make_session(config=config, make_default=True)
+        sess = make_session(config=config, make_default=make_default)
     return sess
 
 def make_session(config=None, num_cpu=None, make_default=False, graph=None):
@@ -85,10 +85,13 @@ def in_session(f):
 
 ALREADY_INITIALIZED = set()
 
-def initialize():
+def initialize(sess =None):
     """Initialize all the uninitialized variables in the global scope."""
     new_variables = set(tf.global_variables()) - ALREADY_INITIALIZED
-    get_session().run(tf.variables_initializer(new_variables))
+    if sess is None:
+        get_session().run(tf.variables_initializer(new_variables))
+    else:
+        sess.run(tf.variables_initializer(new_variables))
     ALREADY_INITIALIZED.update(new_variables)
 
 # ================================================================
@@ -190,6 +193,7 @@ class _Function(object):
         self.update_group = tf.group(*updates)
         self.outputs_update = list(outputs) + [self.update_group]
         self.givens = {} if givens is None else givens
+        self.sess = get_session()
 
     def _feed_input(self, feed_dict, inpt, value):
         if hasattr(inpt, 'make_feed_dict'):
@@ -206,7 +210,8 @@ class _Function(object):
         # Update feed dict with givens.
         for inpt in self.givens:
             feed_dict[inpt] = adjust_shape(inpt, feed_dict.get(inpt, self.givens[inpt]))
-        results = get_session().run(self.outputs_update, feed_dict=feed_dict)[:-1]
+
+        results = self.sess.run(self.outputs_update, feed_dict=feed_dict)[:-1]
         return results
 
 # ================================================================
