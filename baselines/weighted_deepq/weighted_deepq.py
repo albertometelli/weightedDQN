@@ -240,9 +240,7 @@ def learn(env,
         gamma=gamma,
         grad_norm_clipping=10,
     )
-    train_writer = tf.summary.FileWriter(checkpoint_path + 'summaries/train/' + optimizer +
-                                         "/" + ("double_net/" if double_network else "single_net/")
-                                         + str(lr_sigma) + "/" + str(time.time()),
+    train_writer = tf.summary.FileWriter(checkpoint_path,
                                          sess.graph)
     act_params = {
         'make_obs_ph': make_obs_ph,
@@ -413,7 +411,7 @@ def learn(env,
                 print("Start eval of {} timesteps, with model after {} steps of training:".format(eval_timesteps, t))
                 if not os.path.exists(checkpoint_path):
                     os.makedirs(checkpoint_path)
-                checkpoint_name = checkpoint_path + 'checkpoint_eps_' + str(eval_count)
+                checkpoint_name = checkpoint_path + '/checkpoint_eps_' + str(eval_count)
                 #save_variables(checkpoint_name)
 
                 def pi_wrapper(ob):
@@ -427,7 +425,7 @@ def learn(env,
                 print("Finished eval:   Score:{}".format(rew_eval))
                 if rew_eval > best_rew:
                     print("New best model with evaluation saved")
-                    checkpoint_name = checkpoint_path + 'best_eval'
+                    checkpoint_name = checkpoint_path + '/best_eval'
                     save_variables(checkpoint_name)
                     best_rew = rew_eval
                 eval_count += 1

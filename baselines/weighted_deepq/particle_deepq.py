@@ -104,6 +104,7 @@ def learn(env,
           q_max=100,
           optimizer="Adam",
           momentum=0.9,
+          separate_optimizers=False,
           exploration_fraction=0.1,
           exploration_final_eps=0.02,
           train_freq=1,
@@ -230,10 +231,10 @@ def learn(env,
         optimizer=opt(learning_rate=lr_q),
         gamma=gamma,
         k=k,
-        q_max=q_max)
+        q_max=q_max,
+        separate_optimizers=separate_optimizers)
 
-    train_writer = tf.summary.FileWriter(checkpoint_path + 'summaries/train/particle/' + optimizer +
-                                         "/" + str(time.time()),
+    train_writer = tf.summary.FileWriter(checkpoint_path,
                                          sess.graph)
     act_params = {
         'make_obs_ph': make_obs_ph,
@@ -396,7 +397,7 @@ def learn(env,
                 print("Start eval of {} timesteps, with model after {} steps of training:".format(eval_timesteps, t))
                 if not os.path.exists(checkpoint_path):
                     os.makedirs(checkpoint_path)
-                checkpoint_name = checkpoint_path + 'checkpoint_eps_' + str(eval_count)
+                checkpoint_name = checkpoint_path + '/checkpoint_eps_' + str(eval_count)
                 #save_variables(checkpoint_name)
 
                 def pi_wrapper(ob):
@@ -410,7 +411,7 @@ def learn(env,
                 print("Finished eval:   Score:{}".format(rew_eval))
                 if rew_eval > best_rew:
                     print("New best model with evaluation saved")
-                    checkpoint_name = checkpoint_path + 'best_eval'
+                    checkpoint_name = checkpoint_path + '/best_eval'
                     save_variables(checkpoint_name)
                     best_rew = rew_eval
                 eval_count += 1

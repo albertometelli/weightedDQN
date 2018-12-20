@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 import numpy as np
+import time
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import tensorflow as tf
@@ -29,6 +30,7 @@ def main():
     arg_utils.add_argument("--interactive", action='store_true')
     arg_utils.add_argument("--eval_timesteps", type=int, default=65000,
                            help='Number of evaluation steps')
+    arg_utils.add_argument("--separate_optimizers", action='store_true')
     arg_alg = parser.add_argument_group('Algorithm')
     arg_alg.add_argument("--name",
                          default='BreakoutNoFrameskip-v4',
@@ -110,12 +112,15 @@ def main():
                             weighted_update=not args.mean_update,
                             checkpoint_path="deepq_logs/" + args.name + "/" +
                                             ("mean_update" if args.mean_update else "weighted_update") +
-                                            "/" + ("particle" if args.particle else "gaussian")
+                                            "/" + ("particle/" if args.particle else "gaussian/") +
+                                            ("separate_optimizers/" if args.separate_optimizers else "") +
+                                            args.optimizer + "/" + str(args.lr_q) + "/" + str(time.time())
                             )
     if args.particle:
         learn_func = weighted_deepq.particle_learn
         algorithm_params = dict(k=args.k,
                                 q_max=args.q_max,
+                                separate_optimizers = args.separate_optimizers,
                                 **algorithm_params)
     else:
         learn_func = weighted_deepq.learn

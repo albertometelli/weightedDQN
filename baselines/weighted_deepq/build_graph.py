@@ -824,7 +824,7 @@ def build_act_particle(make_obs_ph, q_func, num_actions, scope, reuse, k, q_max)
 
 
 def build_train_particle(make_obs_ph, q_func, num_actions, optimizer,
-                grad_norm_clipping=None, gamma=1.0, scope="deepq", reuse=None, k=10, q_max=100):
+                grad_norm_clipping=None, gamma=1.0, scope="deepq", reuse=None, k=10, q_max=100, separate_optimizers = False):
     """Creates the train function:
 
     Parameters
@@ -893,7 +893,8 @@ def build_train_particle(make_obs_ph, q_func, num_actions, optimizer,
         # q network evaluation
         q_t = q_func(obs_t_input.get(), num_actions, k=k,  q_max=q_max, scope="q_func", reuse=True)  # reuse parameters from act
         q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/q_func")
-
+        conv_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/q_func/"+"convnet")
+        head_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/q_func/"+"action_value")
         # target q network evalution
         q_tp1 = q_func(obs_tp1_input.get(), num_actions, k=k,  q_max=q_max, scope="target_q_func")
         target_q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=tf.get_variable_scope().name + "/target_q_func")
@@ -938,17 +939,37 @@ def build_train_particle(make_obs_ph, q_func, num_actions, optimizer,
         q_target_sorted = tf.contrib.framework.sort(q_target, axis=1)
 
         # compute the error (potentially clipped)
-        td_error = tf.reduce_sum(q_selected_sorted - q_target_sorted, axis=1)
-        errors = U.huber_loss(td_error)
 
+        td_error = tf.losses.huber_loss(q_target_sorted, q_selected_sorted)
+        errors = td_error
         # compute optimization op (potentially with gradient clipping)
-        gradients = optimizer.compute_gradients(errors, var_list=q_func_vars)
 
-        if grad_norm_clipping is not None:
-            for i, (grad, var) in enumerate(gradients):
-                if grad is not None:
-                    gradients[i] = (tf.clip_by_norm(grad, grad_norm_clipping), var)
-        optimize_expr = optimizer.apply_gradients(gradients)
+        if separate_optimizers:
+            conv_optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
+            conv_gradients = conv_optimizer.compute_gradients(errors, var_list=conv_vars)
+            particle_gradients = optimizer.compute_gradients(errors, var_list=head_vars)
+
+            if grad_norm_clipping is not None:
+
+                for i, (grad, var) in enumerate(conv_gradients):
+                    if grad is not None:
+                        conv_gradients[i] = (tf.clip_by_norm(grad, grad_norm_clipping), var)
+                for i, (grad, var) in enumerate(particle_gradients):
+                    if grad is not None:
+                        particle_gradients[i] = (tf.clip_by_norm(grad, grad_norm_clipping), var)
+
+            optimize_conv = conv_optimizer.apply_gradients(conv_gradients)
+            optimize_particle = optimizer.apply_gradients(particle_gradients)
+            optimize_expressions = [optimize_conv, optimize_particle]
+        else:
+            gradients = optimizer.compute_gradients(errors, var_list=q_func_vars)
+
+            if grad_norm_clipping is not None:
+                for i, (grad, var) in enumerate(gradients):
+                    if grad is not None:
+                        gradients[i] = (tf.clip_by_norm(grad, grad_norm_clipping), var)
+
+            optimize_expressions = [optimizer.apply_gradients(gradients)]
 
 
         with tf.name_scope('train_summaries'):
@@ -976,7 +997,7 @@ def build_train_particle(make_obs_ph, q_func, num_actions, optimizer,
                 weighted_update_ph,
             ],
             outputs=[td_error, merged, q_t, q_t_selected, q_tp1, q_target_unmasked, q_target_masked],
-            updates=[optimize_expr]
+            updates=[optimize_expressions]
         )
 
         update_target = U.function([], [], updates=[update_target_expr])

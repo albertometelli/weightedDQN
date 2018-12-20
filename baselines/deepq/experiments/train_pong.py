@@ -54,7 +54,7 @@ def main():
         convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
         hiddens=[256],
         dueling=True,
-        grad_norm_clipping=args.grad_norm
+        grad_norm_clipping=not args.grad_norm
     )
 
     model.save('pong_model.pkl')
