@@ -54,6 +54,9 @@ def experiment():
     arg_net.add_argument("--learning-rate", type=float, default=.00025,
                          help='Learning rate value of the optimizer. Only used'
                               'in rmspropcentered')
+    arg_net.add_argument("--lr-sigma", type=float, default=.1e-6,
+                         help='Learning rate value of the optimizer for sigma. Only used'
+                              'in GaussianDQN')
     arg_net.add_argument("--decay", type=float, default=.95)
     arg_net.add_argument("--epsilon", type=float, default=1e-8)
 
@@ -61,6 +64,8 @@ def experiment():
     arg_alg.add_argument("--weighted", action='store_true')
     arg_alg.add_argument("--boot", action='store_true',
                          help="Flag to use BootstrappedDQN.")
+    arg_alg.add_argument("--gaussian", action='store_true',
+                         help="Flag to use GaussianDQN.")
     arg_alg.add_argument("--double", action='store_true',
                          help="Flag to use the DoubleDQN version of the algorithm.")
     arg_alg.add_argument("--weighted-update", action='store_true')
@@ -73,10 +78,12 @@ def experiment():
                                      ],
                          default='huber_loss',
                          help="Loss functions used in the approximator")
-    arg_alg.add_argument("--q-max", type=float, default=100,
+    arg_alg.add_argument("--q-max", type=float, default=1000,
                          help='Upper bound for initializing the heads of the network')
     arg_alg.add_argument("--q-min", type=float, default=0,
                          help='Lower bound for initializing the heads of the network')
+    arg_alg.add_argument("--sigma_weight", type=float, default=0.03,
+                         help='Used in gaussian learning to explore more')
     arg_alg.add_argument("--init-type", choices=['boot', 'linspace'], default='linspace',
                          help='Type of initialization for the network')
     arg_alg.add_argument("--batch-size", type=int, default=32,
@@ -137,18 +144,22 @@ def experiment():
 
     from particle_dqn import ParticleDQN, ParticleDoubleDQN
     from bootstrapped_dqn import BootstrappedDoubleDQN, BootstrappedDQN
+    from gaussian_dqn import GaussianDQN
     from mushroom.core.core import Core
     from mushroom.environments import Atari
     from mushroom.utils.dataset import compute_scores
     from mushroom.utils.parameters import LinearDecayParameter, Parameter
 
-    from policy import BootPolicy, WeightedPolicy, VPIPolicy
+    from policy import BootPolicy, WeightedPolicy, WeightedGaussianPolicy
     if args.boot:
         from boot_net import ConvNet
         if args.double:
             agent_algorithm=BootstrappedDoubleDQN
         else:
             agent_algorithm=BootstrappedDQN
+    elif args.gaussian:
+        from gaussian import GaussianNet as ConvNet
+        agent_algorithm = GaussianDQN
     else:
         from net import ConvNet
         if args.double:
@@ -179,8 +190,8 @@ def experiment():
         if args.boot:
             pi=BootPolicy(args.n_approximators, epsilon=epsilon_test)
         else:
-            if not args.weighted:
-                pi = VPIPolicy(args.n_approximators, epsilon=epsilon_test)
+            if args.gaussian:
+                pi = WeightedGaussianPolicy(epsilon=epsilon_test)
             else:
                 pi = WeightedPolicy(args.n_approximators, epsilon=epsilon_test)
 
@@ -190,11 +201,12 @@ def experiment():
             input_shape=input_shape,
             output_shape=(mdp.info.action_space.n,),
             n_actions=mdp.info.action_space.n,
-            n_approximators=args.n_approximators,
             name='test',
+            sigma_weight=args.sigma_weight,
             load_path=args.load_path,
             optimizer={'name': args.optimizer,
                        'lr': args.learning_rate,
+                       'lr_sigma':args.lr_sigma,
                        'decay': args.decay,
                        'epsilon': args.epsilon},
         )
@@ -208,7 +220,6 @@ def experiment():
             max_replay_size=1,
             clip_reward=True,
             train_frequency=args.train_frequency,
-            n_approximators=args.n_approximators,
             target_update_frequency=args.target_update_frequency,
         )
         if args.boot:
@@ -219,7 +230,9 @@ def experiment():
             approximator_params['q_max']=args.q_max
             approximator_params['loss']=args.loss
             approximator_params['init_type']=args.init_type
-            
+        if not args.gaussian:
+            approximator_params['n_approximators'] = args.n_approximators
+            algorithm_params['n_approximators'] = args.n_approximators
         agent = agent_algorithm(approximator, pi, mdp.info,
                           approximator_params=approximator_params,
                           **algorithm_params)
@@ -236,13 +249,13 @@ def experiment():
     else:
         # DQN learning run
         print("Learning Run")
-        policy_name = 'weighted' if args.weighted else 'vpi'
+        policy_name = 'weighted'
         update_rule = 'weighted_update' if args.weighted_update else 'max_mean_update'
         if args.boot:
             policy_name='boot'
             update_rule='boot'
         # Summary folder
-        folder_name = './logs/' + policy_name + '/' +update_rule+'/'+ args.name+"/"+args.loss+"/"+str(args.n_approximators)+"_particles"+"/"+args.init_type+"_init"+"/"+ts
+        folder_name = './logs/' + policy_name + '/' +update_rule+'/'+ args.name+"/"+args.loss+"/"+str(args.n_approximators)+"_particles"+"/"+args.init_type+"_init"+"/" +str(args.learning_rate)+"/"+ts
 
         # Settings
         if args.debug:
@@ -274,11 +287,10 @@ def experiment():
         epsilon_random = Parameter(value=1.)
         if args.boot:
             pi=BootPolicy(args.n_approximators)
+        elif args.gaussian:
+            pi = WeightedGaussianPolicy()
         else:
-            if not args.weighted:
-                pi = VPIPolicy(args.n_approximators)
-            else:
-                pi = WeightedPolicy(args.n_approximators)
+            pi = WeightedPolicy(args.n_approximators)
 
         # Approximator
         input_shape = ( args.screen_height,args.screen_width, args.history_length)
@@ -286,19 +298,20 @@ def experiment():
             input_shape=input_shape,
             output_shape=(mdp.info.action_space.n,),
             n_actions=mdp.info.action_space.n,
-            n_approximators=args.n_approximators,
             folder_name=folder_name,
+            sigma_weight=args.sigma_weight,
             optimizer={'name': args.optimizer,
                        'lr': args.learning_rate,
                        'decay': args.decay,
-                       'epsilon': args.epsilon}
+                       'epsilon': args.epsilon,
+                       'lr_sigma': args.lr_sigma}
         )
         if args.load_path:
             ts=os.path.basename(os.path.normpath(args.load_path))
             approximator_params['load_path']=args.load_path
             approximator_params['folder_name']=args.load_path
             folder_name=args.load_path
-            p = "scores_"+ts+".npy"
+            p = "scores.npy"
             scores=np.load(p).tolist()
             max_steps=max_steps-evaluation_frequency*len(scores)
         approximator = ConvNet
@@ -310,7 +323,6 @@ def experiment():
             max_replay_size=max_replay_size,
             clip_reward=True,
             train_frequency=args.train_frequency,
-            n_approximators=args.n_approximators,
             target_update_frequency=target_update_frequency
             )
         if args.boot:
@@ -321,7 +333,10 @@ def experiment():
             approximator_params['q_max']=args.q_max
             approximator_params['loss']=args.loss
             approximator_params['init_type']=args.init_type
-        
+
+        if not args.gaussian:
+            approximator_params['n_approximators'] = args.n_approximators
+            algorithm_params['n_approximators'] = args.n_approximators
         agent = agent_algorithm(approximator, pi, mdp.info,
                           approximator_params=approximator_params,
                           **algorithm_params)
@@ -347,7 +362,7 @@ def experiment():
                                 quiet=args.quiet)
         scores.append(get_stats(dataset))
 
-        np.save(folder_name + '/scores_'+ts+'.npy', scores)
+        np.save(folder_name + '/scores.npy', scores)
         for n_epoch in range(1, max_steps // evaluation_frequency + 1):
             print_epoch(n_epoch)
             print('- Learning:')
@@ -370,7 +385,7 @@ def experiment():
                                     quiet=args.quiet)
             scores.append(get_stats(dataset))
 
-            np.save(folder_name + '/scores_'+ts+'.npy', scores)
+            np.save(folder_name + '/scores.npy', scores)
 
     return scores
 

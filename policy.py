@@ -253,11 +253,12 @@ class WeightedGaussianPolicy(TDPolicy):
                     q_list = list()
                     for q in self._approximator.model:
                         q_list.append(q.predict(state))
+                    qs = np.array(q_list)
+                    means = qs[0, :]
                 else:
-                    q_list = self._approximator.predict(state).squeeze()
+                    q_list, sigma_list = self._approximator.predict(state)
+                    means = np.array(q_list).squeeze()
 
-                qs = np.array(q_list)
-                means = qs[0, :]
                 max_a = np.array([np.random.choice(np.argwhere(means == np.max(means)).ravel())])
                 return max_a
             else:
@@ -265,15 +266,19 @@ class WeightedGaussianPolicy(TDPolicy):
                     q_list = list()
                     for q in self._approximator.model:
                         q_list.append(q.predict(state))
+                    qs = np.array(q_list)
+                    means = qs[0, :]
+                    sigmas = qs[1, :]
                 else:
-                    q_list = self._approximator.predict(state).squeeze()
+                    q_list, sigma_list = self._approximator.predict(state)
+                    means = np.array(q_list).squeeze()
+                    sigmas = np.array(sigma_list).squeeze()
 
-                qs = np.array(q_list)
 
                 samples = np.ones(self._approximator.n_actions)
                 for a in range(self._approximator.n_actions):
-                    mean = qs[0, a]
-                    sigma = qs[1, a]
+                    mean = means[a]
+                    sigma = sigmas[a]
                     samples[a] = np.random.normal(loc=mean, scale=sigma)
 
                 max_a = np.array([np.random.choice(np.argwhere(samples == np.max(samples)).ravel())])

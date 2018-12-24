@@ -173,7 +173,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
                                 update_mode=update_mode,
                                 update_type=update_type,
                                 init_values=((q_max - q_min) / 2,
-                                             q_max - q_min / np.sqrt(12)),
+                                             (q_max - q_min) / np.sqrt(12)),
                                 **algorithm_params)
         if double:
             agent = ParticleDoubleQLearning(pi, mdp.info, **algorithm_params)
