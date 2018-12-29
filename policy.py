@@ -4,6 +4,74 @@ from mushroom.policy.td_policy import TDPolicy
 from mushroom.utils.parameters import Parameter
 from scipy.stats import norm
 
+class EpsGreedy(TDPolicy):
+    """
+    Epsilon greedy policy.
+    """
+    def __init__(self, epsilon):
+        """
+        Constructor.
+        Args:
+            epsilon (Parameter): the exploration coefficient. It indicates
+                the probability of performing a random actions in the current
+                step.
+        """
+        super().__init__()
+
+        assert isinstance(epsilon, Parameter)
+        self._epsilon = epsilon
+
+    def __call__(self, *args):
+        state = args[0]
+        q = self._approximator.predict(np.expand_dims(state, axis=0)).ravel()
+        max_a = np.argwhere(q == np.max(q)).ravel()
+
+        p = self._epsilon.get_value(state) / self._approximator.n_actions
+
+        if len(args) == 2:
+            action = args[1]
+            if action in max_a:
+                return p + (1. - self._epsilon.get_value(state)) / len(max_a)
+            else:
+                return p
+        else:
+            probs = np.ones(self._approximator.n_actions) * p
+            probs[max_a] += (1. - self._epsilon.get_value(state)) / len(max_a)
+
+            return probs
+
+    def draw_action(self, state):
+        if not np.random.uniform() < self._epsilon(state):
+            q = self._approximator.predict(state)
+            max_a = np.argwhere(q == np.max(q)).ravel()
+
+            if len(max_a) > 1:
+                max_a = np.array([np.random.choice(max_a)])
+
+            return max_a
+
+        return np.array([np.random.choice(self._approximator.n_actions)])
+
+    def set_epsilon(self, epsilon):
+        """
+        Setter.
+        Args:
+            epsilon (Parameter): the exploration coefficient. It indicates the
+            probability of performing a random actions in the current step.
+        """
+        assert isinstance(epsilon, Parameter)
+
+        self._epsilon = epsilon
+
+    def update(self, *idx):
+        """
+        Update the value of the epsilon parameter at the provided index (e.g. in
+        case of different values of epsilon for each visited state according to
+        the number of visits).
+        Args:
+            *idx (list): index of the parameter to be updated.
+        """
+        self._epsilon.update(*idx)
 
 class BootPolicy(TDPolicy):
     def __init__(self, n_approximators, epsilon=None):
@@ -256,10 +324,15 @@ class WeightedGaussianPolicy(TDPolicy):
                     qs = np.array(q_list)
                     means = qs[0, :]
                 else:
-                    q_list, sigma_list = self._approximator.predict(state)
-                    means = np.array(q_list).squeeze()
-
-                max_a = np.array([np.random.choice(np.argwhere(means == np.max(means)).ravel())])
+                    q_and_sigma = self._approximator.predict(state)
+                    means = q_and_sigma[0, :, :].squeeze()
+                try:
+                    max_a = np.array([np.random.choice(np.argwhere(means == np.max(means)).ravel())])
+                except:
+                    print(means)
+                    print(self._approximator.predict(state))
+                    input()
+                    return np.array([0])
                 return max_a
             else:
                 if isinstance(self._approximator.model, list):
@@ -270,9 +343,9 @@ class WeightedGaussianPolicy(TDPolicy):
                     means = qs[0, :]
                     sigmas = qs[1, :]
                 else:
-                    q_list, sigma_list = self._approximator.predict(state)
-                    means = np.array(q_list).squeeze()
-                    sigmas = np.array(sigma_list).squeeze()
+                    q_and_sigma = self._approximator.predict(state)
+                    means = q_and_sigma[0, :, :].squeeze()
+                    sigmas = q_and_sigma[1, :, :].squeeze()
 
 
                 samples = np.ones(self._approximator.n_actions)
@@ -280,8 +353,15 @@ class WeightedGaussianPolicy(TDPolicy):
                     mean = means[a]
                     sigma = sigmas[a]
                     samples[a] = np.random.normal(loc=mean, scale=sigma)
-
-                max_a = np.array([np.random.choice(np.argwhere(samples == np.max(samples)).ravel())])
+                try:
+                    max_a = np.array([np.random.choice(np.argwhere(samples == np.max(samples)).ravel())])
+                except:
+                    print(means)
+                    print(sigmas)
+                    print(samples)
+                    print(self._approximator.predict(state))
+                    input()
+                    return np.array([0])
                 return max_a
         else:
             return np.array([np.random.choice(self._approximator.n_actions)])

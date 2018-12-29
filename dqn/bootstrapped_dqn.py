@@ -10,7 +10,7 @@ from replay_memory import  ReplayMemory
 
 class BootstrappedDQN(Agent):
     def __init__(self, approximator, policy, mdp_info, batch_size,
-                 target_update_frequency, initial_replay_size, train_frequency,
+                 target_update_frequency, initial_replay_size,
                  max_replay_size, fit_params=None, approximator_params=None,
                  n_approximators=1,clip_reward=True,
                  p_mask=2 / 3.):
@@ -19,7 +19,7 @@ class BootstrappedDQN(Agent):
         self._batch_size = batch_size
         self._n_approximators = n_approximators
         self._clip_reward = clip_reward
-        self._target_update_frequency = target_update_frequency // train_frequency
+        self._target_update_frequency = target_update_frequency
         
         self._p_mask = p_mask
 

@@ -10,14 +10,14 @@ from replay_memory import ReplayMemory
 
 class GaussianDQN(Agent):
     def __init__(self, approximator, policy, mdp_info, batch_size,
-                 target_update_frequency, initial_replay_size, train_frequency,
+                 target_update_frequency, initial_replay_size,
                  max_replay_size, fit_params=None, approximator_params=None, clip_reward=True,
                  weighted_update=False):
         self._fit_params = dict() if fit_params is None else fit_params
 
         self._batch_size = batch_size
         self._clip_reward = clip_reward
-        self._target_update_frequency = target_update_frequency // train_frequency
+        self._target_update_frequency = target_update_frequency
         self.weighted_update = weighted_update
 
         self._replay_memory = ReplayMemory(initial_replay_size, max_replay_size)
@@ -76,10 +76,10 @@ class GaussianDQN(Agent):
                 input()
 
     def fit(self, dataset):
-
-        self._replay_memory.add(dataset)
+        mask = np.ones((len(dataset), 2))
+        self._replay_memory.add(dataset,mask)
         if self._replay_memory.initialized:
-            state, action, reward, next_state, absorbing, _, = \
+            state, action, reward, next_state, absorbing, _, mask = \
                 self._replay_memory.get(self._batch_size)
 
             if self._clip_reward:
@@ -87,9 +87,10 @@ class GaussianDQN(Agent):
 
             q_next, sigma_next = self._next_q(next_state, absorbing)
 
-            q = reward.reshape(self._batch_size,
-                               1) + self.mdp_info.gamma * q_next
-            self.approximator.fit(state, action, q, sigma_next,
+            q = reward + self.mdp_info.gamma * q_next
+            sigma = self.mdp_info.gamma * sigma_next
+            stacked = np.stack([q, sigma])
+            self.approximator.fit(state, action, stacked,
                                   **self._fit_params)
 
             self._n_updates += 1
@@ -117,27 +118,28 @@ class GaussianDQN(Agent):
             Maximum action-value for each state in `next_state`.
 
         """
-        q, sigma = self.target_approximator.predict(next_state)
-        q = np.array(q)
-        sigma = np.array(sigma)
+        q_and_sigma = self.target_approximator.predict(next_state).squeeze()
+
+        q = q_and_sigma[0, :, :]
+        sigma = q_and_sigma[1, :, :]
         for i in range(q.shape[0]):
             if absorbing[i]:
-                q[i, :] *= 1. - absorbing[i]
-                sigma[i, :] *= 1. - absorbing[i]
-        max_q = np.zeros((q.shape[1], 1))
-        max_sigma = np.zeros((q.shape[1], 1))
+                q[i] *= 0
+                sigma[i] *= 0
+        max_q = np.zeros((q.shape[0]))
+        max_sigma = np.zeros((q.shape[0]))
         if not self.weighted_update:
             best_actions = np.argmax(q, axis=1)
             for i in range(q.shape[0]):
-                max_q[i, :] = q[i, best_actions[i]]
-                max_sigma[i, :] = sigma[i, best_actions[i]]
+                max_q[i] = q[i, best_actions[i]]
+                max_sigma[i] = sigma[i, best_actions[i]]
         else:
             for i in range(q.shape[0]):  # for each batch
-                means = q[i, :]
+                means = q[i,:]
                 sigmas = sigma[i, :]
                 prob = GaussianDQN._compute_prob_max(means,sigmas)
-                max_q[i, :] = np.sum(means * prob)
-                max_sigma[i, :] = np.sum(sigmas*prob)
+                max_q[i] = np.sum(means * prob)
+                max_sigma[i] = np.sum(sigmas*prob)
         return max_q, max_sigma
 
     def draw_action(self, state):

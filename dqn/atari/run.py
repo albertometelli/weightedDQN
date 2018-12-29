@@ -61,6 +61,13 @@ def experiment():
     arg_net.add_argument("--epsilon", type=float, default=1e-8)
 
     arg_alg = parser.add_argument_group('Algorithm')
+    arg_alg.add_argument("--alg",
+                         choices=['boot',
+                                  'particle',
+                                  'gaussian',
+                                  'dqn'],
+                         default='particle',
+                         help='Algorithm to use')
     arg_alg.add_argument("--weighted", action='store_true')
     arg_alg.add_argument("--boot", action='store_true',
                          help="Flag to use BootstrappedDQN.")
@@ -82,7 +89,7 @@ def experiment():
                          help='Upper bound for initializing the heads of the network')
     arg_alg.add_argument("--q-min", type=float, default=0,
                          help='Lower bound for initializing the heads of the network')
-    arg_alg.add_argument("--sigma_weight", type=float, default=0.03,
+    arg_alg.add_argument("--sigma-weight", type=float, default=1,
                          help='Used in gaussian learning to explore more')
     arg_alg.add_argument("--init-type", choices=['boot', 'linspace'], default='linspace',
                          help='Type of initialization for the network')
@@ -104,12 +111,12 @@ def experiment():
     arg_alg.add_argument("--final-exploration-frame", type=int, default=1,
                          help='Number of steps until the exploration rate stops'
                               'decreasing.')
-    arg_alg.add_argument("--initial-exploration-rate", type=float, default=0.,
+    arg_alg.add_argument("--initial-exploration-rate", type=float, default=0.05,
                          help='Initial value of the exploration rate.')
-    arg_alg.add_argument("--final-exploration-rate", type=float, default=0.,
+    arg_alg.add_argument("--final-exploration-rate", type=float, default=0.05,
                          help='Final value of the exploration rate. When it'
                               'reaches this values, it stays constant.')
-    arg_alg.add_argument("--test-exploration-rate", type=float, default=.005,
+    arg_alg.add_argument("--test-exploration-rate", type=float, default=0.05,
                          help='Exploration rate used during evaluation.')
     arg_alg.add_argument("--test-samples", type=int, default=125000,
                          help='Number of steps for each evaluation.')
@@ -145,27 +152,35 @@ def experiment():
     from particle_dqn import ParticleDQN, ParticleDoubleDQN
     from bootstrapped_dqn import BootstrappedDoubleDQN, BootstrappedDQN
     from gaussian_dqn import GaussianDQN
+    from dqn import DoubleDQN, DQN
     from mushroom.core.core import Core
     from mushroom.environments import Atari
+
     from mushroom.utils.dataset import compute_scores
     from mushroom.utils.parameters import LinearDecayParameter, Parameter
 
-    from policy import BootPolicy, WeightedPolicy, WeightedGaussianPolicy
-    if args.boot:
+    from policy import BootPolicy, WeightedPolicy, WeightedGaussianPolicy, EpsGreedy
+    if args.alg == 'boot':
         from boot_net import ConvNet
         if args.double:
-            agent_algorithm=BootstrappedDoubleDQN
+            agent_algorithm = BootstrappedDoubleDQN
         else:
-            agent_algorithm=BootstrappedDQN
-    elif args.gaussian:
-        from gaussian import GaussianNet as ConvNet
+            agent_algorithm = BootstrappedDQN
+    elif args.alg == 'gaussian':
+        from gaussian_net import GaussianNet as ConvNet
         agent_algorithm = GaussianDQN
+    elif args.alg == 'dqn':
+        from dqn_net import ConvNet
+        if args.double:
+            agent_algorithm = DoubleDQN
+        else:
+            agent_algorithm = DQN
     else:
         from net import ConvNet
         if args.double:
-            agent_algorithm=ParticleDoubleDQN
+            agent_algorithm = ParticleDoubleDQN
         else:
-            agent_algorithm=ParticleDQN
+            agent_algorithm = ParticleDQN
     def get_stats(dataset):
         score = compute_scores(dataset)
         print('min_reward: %f, max_reward: %f, mean_reward: %f,'
@@ -187,14 +202,6 @@ def experiment():
         # Policy
         epsilon_test = Parameter(value=args.test_exploration_rate)
 
-        if args.boot:
-            pi=BootPolicy(args.n_approximators, epsilon=epsilon_test)
-        else:
-            if args.gaussian:
-                pi = WeightedGaussianPolicy(epsilon=epsilon_test)
-            else:
-                pi = WeightedPolicy(args.n_approximators, epsilon=epsilon_test)
-
         # Approximator
         input_shape = ( args.screen_height,args.screen_width, args.history_length)
         approximator_params = dict(
@@ -202,7 +209,6 @@ def experiment():
             output_shape=(mdp.info.action_space.n,),
             n_actions=mdp.info.action_space.n,
             name='test',
-            sigma_weight=args.sigma_weight,
             load_path=args.load_path,
             optimizer={'name': args.optimizer,
                        'lr': args.learning_rate,
@@ -222,15 +228,26 @@ def experiment():
             train_frequency=args.train_frequency,
             target_update_frequency=args.target_update_frequency,
         )
-        if args.boot:
-            algorithm_params['p_mask']=args.p_mask
+        if args.alg == 'boot':
+            algorithm_params['p_mask'] = args.p_mask
+            pi = BootPolicy(args.n_approximators, epsilon=epsilon_test)
+        elif args.alg == 'gaussian':
+            pi = WeightedGaussianPolicy(epsilon=epsilon_test)
+        elif args.alg == 'dqn':
+            pi = EpsGreedy(epsilon=epsilon_test)
+        elif args.alg =='particle':
+            pi = WeightedPolicy(args.n_approximators, epsilon=epsilon_test)
         else:
+            raise ValueError("Algorithm uknown")
+
+        if args.alg in ['gaussian', 'particle']:
             algorithm_params['weighted_update']=args.weighted_update
             approximator_params['q_min']=args.q_min
             approximator_params['q_max']=args.q_max
             approximator_params['loss']=args.loss
-            approximator_params['init_type']=args.init_type
-        if not args.gaussian:
+            approximator_params['init_type'] = args.init_type
+            approximator_params['sigma_weight'] = args.sigma_weight
+        if  args.alg in ['particle', 'boot']:
             approximator_params['n_approximators'] = args.n_approximators
             algorithm_params['n_approximators'] = args.n_approximators
         agent = agent_algorithm(approximator, pi, mdp.info,
@@ -249,13 +266,6 @@ def experiment():
     else:
         # DQN learning run
         print("Learning Run")
-        policy_name = 'weighted'
-        update_rule = 'weighted_update' if args.weighted_update else 'max_mean_update'
-        if args.boot:
-            policy_name='boot'
-            update_rule='boot'
-        # Summary folder
-        folder_name = './logs/' + policy_name + '/' +update_rule+'/'+ args.name+"/"+args.loss+"/"+str(args.n_approximators)+"_particles"+"/"+args.init_type+"_init"+"/" +str(args.learning_rate)+"/"+ts
 
         # Settings
         if args.debug:
@@ -285,12 +295,27 @@ def experiment():
                                        n=args.final_exploration_frame)
         epsilon_test = Parameter(value=args.test_exploration_rate)
         epsilon_random = Parameter(value=1.)
-        if args.boot:
-            pi=BootPolicy(args.n_approximators)
-        elif args.gaussian:
+
+        policy_name = 'weighted'
+        update_rule = 'weighted_update' if args.weighted_update else 'max_mean_update'
+        if args.alg == 'boot':
+            pi = BootPolicy(args.n_approximators, epsilon = epsilon)
+            policy_name = 'boot'
+            update_rule = 'boot'
+        elif args.alg == 'dqn':
+            pi = EpsGreedy(epsilon=epsilon)
+            policy_name = 'eps_greedy'
+            update_rule = 'td'
+        elif args.alg == 'particle':
+            pi = WeightedPolicy(args.n_approximators)
+        elif args.alg == 'gaussian':
             pi = WeightedGaussianPolicy()
         else:
-            pi = WeightedPolicy(args.n_approximators)
+            raise ValueError("Algorithm unknown")
+        # Summary folder
+        folder_name = './logs/' + args.alg + "/" + policy_name + '/' + update_rule + '/' + args.name + "/" + args.loss + "/" + str(
+            args.n_approximators) + "_particles" + "/" + args.init_type + "_init" + "/" + str(
+            args.learning_rate) + "/" + ts
 
         # Approximator
         input_shape = ( args.screen_height,args.screen_width, args.history_length)
@@ -322,21 +347,21 @@ def experiment():
             initial_replay_size=initial_replay_size,
             max_replay_size=max_replay_size,
             clip_reward=True,
-            train_frequency=args.train_frequency,
-            target_update_frequency=target_update_frequency
+            target_update_frequency=target_update_frequency // args.train_frequency
             )
-        if args.boot:
+        if args.alg == 'boot':
             algorithm_params['p_mask']=args.p_mask
-        else:
+        elif args.alg in ['particle', 'gaussian']:
             algorithm_params['weighted_update']=args.weighted_update
             approximator_params['q_min']=args.q_min
             approximator_params['q_max']=args.q_max
             approximator_params['loss']=args.loss
             approximator_params['init_type']=args.init_type
 
-        if not args.gaussian:
+        if args.alg in ['boot', 'particle']:
             approximator_params['n_approximators'] = args.n_approximators
             algorithm_params['n_approximators'] = args.n_approximators
+
         agent = agent_algorithm(approximator, pi, mdp.info,
                           approximator_params=approximator_params,
                           **algorithm_params)
@@ -355,7 +380,8 @@ def experiment():
             agent.approximator.model.save()
 
         # Evaluate initial policy
-        pi.set_eval(True)
+        if hasattr(pi, 'set_eval'):
+            pi.set_eval(True)
         pi.set_epsilon(epsilon_test)
         mdp.set_episode_end(False)
         dataset = core.evaluate(n_steps=test_samples, render=args.render,
@@ -367,7 +393,9 @@ def experiment():
             print_epoch(n_epoch)
             print('- Learning:')
             # learning step
-            pi.set_eval(False)
+            if hasattr(pi, 'set_eval'):
+                pi.set_eval(False)
+
             pi.set_epsilon(epsilon)
             mdp.set_episode_end(True)
             core.learn(n_steps=evaluation_frequency,
@@ -378,7 +406,8 @@ def experiment():
 
             print('- Evaluation:')
             # evaluation step
-            pi.set_eval(True)
+            if hasattr(pi, 'set_eval'):
+                pi.set_eval(True)
             pi.set_epsilon(epsilon_test)
             mdp.set_episode_end(False)
             dataset = core.evaluate(n_steps=test_samples, render=args.render,

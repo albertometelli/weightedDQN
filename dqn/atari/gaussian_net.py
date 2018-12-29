@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-
+import baselines.common.tf_util as U
 
 class GaussianNet:
     def __init__(self, name=None, folder_name=None, load_path=None,
@@ -36,17 +36,20 @@ class GaussianNet:
 
     def predict(self, s):
         s = np.transpose(s, [0, 2, 3, 1])
-        return self._session.run([self._q,self._sigma], feed_dict={self._x: s})
 
-    def fit(self, s, a, q,sigma):
+        return np.array([self._session.run([self._q, self._sigma], feed_dict={self._x: s})])
+
+    def fit(self, s, a, q_and_sigma):
         s = np.transpose(s, [0, 2, 3, 1])
-        summaries, _ = self._session.run(
-            [self._merged, self._train_step],
+        summaries, _, loss = self._session.run(
+            [self._merged, self._train_step, self.loss],
             feed_dict={self._x: s,
                        self._action: a.ravel().astype(np.uint8),
-                       self._target_q: q,
-                       self._target_sigma:sigma}
+                       self._target_q: q_and_sigma[0],
+                       self._target_sigma: q_and_sigma[1]}
         )
+        print(loss)
+        input()
         if hasattr(self, '_train_writer'):
             self._train_writer.add_summary(summaries, self._train_count)
 
@@ -180,7 +183,7 @@ class GaussianNet:
                         self.sigma_features,
                         convnet_pars['output_shape'][0],
                         kernel_initializer=tf.glorot_uniform_initializer(),
-                        bias_initializer=tf.constant_initializer(logsigma),
+                        bias_initializer=tf.constant_initializer(0),
                         name='log_sigma'
                     )
                     self._sigma = tf.exp(self._log_sigma, name='sigma')
@@ -191,23 +194,27 @@ class GaussianNet:
 
             self._target_q = tf.placeholder(
                 'float32',
-                [None, 1],
+                [None],
                 name='target_q'
             )
             self._target_sigma = tf.placeholder(
                 'float32',
-                [None, 1],
+                [None],
                 name='target_sigma'
             )
-
+            self.out = [self._q, self._sigma]
             loss = 0.
             if convnet_pars["loss"] == "huber_loss":
                 self.loss_fuction = tf.losses.huber_loss
             else:
                 self.loss_fuction = tf.losses.mean_squared_error
 
-            loss = self.loss_fuction((self._q_acted - self.target_q) ** 2 + \
-                       self.sigma_weight * (self._sigma_acted - self._target_sigma) ** 2)
+            zeros = tf.fill(tf.shape(self._action), 0.)
+
+            loss = self.loss_fuction(zeros,(self._q_acted - self._target_q) ** 2 + \
+                                     tf.math.scalar_mul(
+                                         self.sigma_weight,
+                                         (self._sigma_acted - self._target_sigma) ** 2))
 
             tf.summary.scalar(convnet_pars["loss"], loss)
             tf.summary.scalar('average_q', tf.reduce_mean(self._q))
@@ -255,7 +262,7 @@ class GaussianNet:
             self._train_step = tf.group(*[opt.apply_gradients(q_gradients), 
                                           sigma_opt.apply_gradients(sigma_gradients)])'''
             self._train_step = opt.minimize(loss=loss)
-
+            self.loss =loss
             initializer = tf.variables_initializer(
                 tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
                                   scope=self._scope_name))

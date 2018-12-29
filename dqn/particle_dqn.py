@@ -10,7 +10,7 @@ from replay_memory import ReplayMemory
 
 class ParticleDQN(Agent):
     def __init__(self, approximator, policy, mdp_info, batch_size,
-                 target_update_frequency, initial_replay_size, train_frequency,
+                 target_update_frequency, initial_replay_size,
                  max_replay_size, fit_params=None, approximator_params=None,
                  n_approximators=1, clip_reward=True,
                  weighted_update=False):
@@ -19,7 +19,7 @@ class ParticleDQN(Agent):
         self._batch_size = batch_size
         self._n_approximators = n_approximators
         self._clip_reward = clip_reward
-        self._target_update_frequency = target_update_frequency // train_frequency
+        self._target_update_frequency = target_update_frequency
         self.weighted_update = weighted_update
 
         self._replay_memory = ReplayMemory(initial_replay_size, max_replay_size)
@@ -59,11 +59,12 @@ class ParticleDQN(Agent):
             if self._clip_reward:
                 reward = np.clip(reward, -1, 1)
 
-            q_next = self._next_q(next_state, absorbing)
+            q_next, prob_explore = self._next_q(next_state, absorbing)
 
             q = reward.reshape(self._batch_size,
                                1) + self.mdp_info.gamma * q_next
             self.approximator.fit(state, action, q, mask=mask,
+                                  prob_exploration=prob_explore,
                                   **self._fit_params)
 
             self._n_updates += 1
@@ -97,7 +98,14 @@ class ParticleDQN(Agent):
                 q[:, i, :] *= 1. - absorbing[i]
 
         max_q = np.zeros((q.shape[1], q.shape[0]))
-
+        probs = []
+        prob_explore = 0
+        for i in range(q.shape[1]):  # for each batch
+            particles = q[:, i, :]
+            prob = ParticleDQN._compute_prob_max(particles)
+            probs.append(prob)
+            prob_explore += 1 - np.max(prob)
+        prob_explore = 1 / q.shape[1]
         if not self.weighted_update:
             best_actions = np.argmax(np.mean(q, axis=0), axis=1)
             for i in range(q.shape[1]):
@@ -105,9 +113,9 @@ class ParticleDQN(Agent):
         else:
             for i in range(q.shape[1]): #for each batch 
                 particles = q[:, i, :]
-                prob = ParticleDQN._compute_prob_max(particles)
+                prob = probs[i]
                 max_q[i, :] = np.dot(particles, prob)
-        return max_q
+        return max_q, prob_explore
 
 
     def draw_action(self, state):
