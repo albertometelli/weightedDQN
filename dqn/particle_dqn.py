@@ -99,13 +99,13 @@ class ParticleDQN(Agent):
 
         max_q = np.zeros((q.shape[1], q.shape[0]))
         probs = []
-        prob_explore = 0
+        prob_explore = []
         for i in range(q.shape[1]):  # for each batch
             particles = q[:, i, :]
             prob = ParticleDQN._compute_prob_max(particles)
             probs.append(prob)
-            prob_explore += 1 - np.max(prob)
-        prob_explore = 1 / q.shape[1]
+            prob_explore.append(1 - np.max(prob))
+        prob_explore = np.mean(prob_explore)
         if not self.weighted_update:
             best_actions = np.argmax(np.mean(q, axis=0), axis=1)
             for i in range(q.shape[1]):

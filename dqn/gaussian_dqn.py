@@ -23,7 +23,7 @@ class GaussianDQN(Agent):
         self._replay_memory = ReplayMemory(initial_replay_size, max_replay_size)
 
         self._n_updates = 0
-
+        self._epsilon = 1e-7
         apprx_params_train = deepcopy(approximator_params)
         apprx_params_train['name'] = 'train'
         apprx_params_target = deepcopy(approximator_params)
@@ -85,12 +85,13 @@ class GaussianDQN(Agent):
             if self._clip_reward:
                 reward = np.clip(reward, -1, 1)
 
-            q_next, sigma_next = self._next_q(next_state, absorbing)
+            q_next, sigma_next, prob_explore = self._next_q(next_state, absorbing)
 
             q = reward + self.mdp_info.gamma * q_next
             sigma = self.mdp_info.gamma * sigma_next
             stacked = np.stack([q, sigma])
             self.approximator.fit(state, action, stacked,
+                                  prob_exploration=prob_explore,
                                   **self._fit_params)
 
             self._n_updates += 1
@@ -125,9 +126,18 @@ class GaussianDQN(Agent):
         for i in range(q.shape[0]):
             if absorbing[i]:
                 q[i] *= 0
-                sigma[i] *= 0
+                sigma[i] *= self._epsilon
         max_q = np.zeros((q.shape[0]))
         max_sigma = np.zeros((q.shape[0]))
+        probs = []
+        prob_explore = []
+        for i in range(q.shape[0]):  # for each batch
+            means = q[i, :]
+            sigmas = sigma[i, :]
+            prob = GaussianDQN._compute_prob_max(means, sigmas)
+            probs.append(prob)
+            prob_explore.append(1. - np.max(prob))
+        prob_explore = np.mean(prob_explore)
         if not self.weighted_update:
             best_actions = np.argmax(q, axis=1)
             for i in range(q.shape[0]):
@@ -135,12 +145,12 @@ class GaussianDQN(Agent):
                 max_sigma[i] = sigma[i, best_actions[i]]
         else:
             for i in range(q.shape[0]):  # for each batch
-                means = q[i,:]
+                means = q[i, :]
                 sigmas = sigma[i, :]
-                prob = GaussianDQN._compute_prob_max(means,sigmas)
+                prob = probs[i]
                 max_q[i] = np.sum(means * prob)
-                max_sigma[i] = np.sum(sigmas*prob)
-        return max_q, max_sigma
+                max_sigma[i] = np.sum(sigmas * prob)
+        return max_q, max_sigma, prob_explore
 
     def draw_action(self, state):
         action = super(GaussianDQN, self).draw_action(np.array(state))

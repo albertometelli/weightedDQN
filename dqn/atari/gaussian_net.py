@@ -36,20 +36,21 @@ class GaussianNet:
 
     def predict(self, s):
         s = np.transpose(s, [0, 2, 3, 1])
+        out = np.array([self._session.run([self._q, self._sigma], feed_dict={self._x: s})])
 
-        return np.array([self._session.run([self._q, self._sigma], feed_dict={self._x: s})])
+        return out
 
-    def fit(self, s, a, q_and_sigma):
+    def fit(self, s, a, q_and_sigma, prob_exploration):
         s = np.transpose(s, [0, 2, 3, 1])
         summaries, _, loss = self._session.run(
             [self._merged, self._train_step, self.loss],
             feed_dict={self._x: s,
                        self._action: a.ravel().astype(np.uint8),
-                       self._target_q: q_and_sigma[0],
-                       self._target_sigma: q_and_sigma[1]}
+                       self._target_q: q_and_sigma[0, :],
+                       self._target_sigma: q_and_sigma[1, :],
+                       self._prob_exploration: prob_exploration}
         )
-        print(loss)
-        input()
+
         if hasattr(self, '_train_writer'):
             self._train_writer.add_summary(summaries, self._train_count)
 
@@ -154,7 +155,8 @@ class GaussianNet:
                 initial_values = np.linspace(self.q_min, self.q_max, self.n_approximators)
                 kernel_initializer = lambda _: tf.glorot_uniform_initializer()
                 bias_initializer = lambda i: tf.constant_initializer(initial_values[i])'''
-            mean = (self.q_min +self.q_max) /2.
+            mean = (self.q_min + self.q_max) /2.
+
             logsigma = np.log((self.q_max - self.q_min) / np.sqrt(12))
 
             with tf.variable_scope('q_value'):
@@ -183,7 +185,7 @@ class GaussianNet:
                         self.sigma_features,
                         convnet_pars['output_shape'][0],
                         kernel_initializer=tf.glorot_uniform_initializer(),
-                        bias_initializer=tf.constant_initializer(0),
+                        bias_initializer=tf.constant_initializer(logsigma),
                         name='log_sigma'
                     )
                     self._sigma = tf.exp(self._log_sigma, name='sigma')
@@ -215,9 +217,13 @@ class GaussianNet:
                                      tf.math.scalar_mul(
                                          self.sigma_weight,
                                          (self._sigma_acted - self._target_sigma) ** 2))
+            self._prob_exploration = tf.placeholder(tf.float32, (),
+                                                    name='prob_exploration')
 
             tf.summary.scalar(convnet_pars["loss"], loss)
             tf.summary.scalar('average_q', tf.reduce_mean(self._q))
+            tf.summary.scalar('average_sigma', tf.reduce_mean(self._sigma))
+            tf.summary.scalar('prob_exploration', self._prob_exploration)
             tf.summary.histogram('qs', self._q)
             self._merged = tf.summary.merge(
                 tf.get_collection(tf.GraphKeys.SUMMARIES,
