@@ -5,7 +5,7 @@ from mushroom.utils.table import EnsembleTable
 from scipy.stats import norm
 
 class Particle(TD):
-    def __init__(self, policy, mdp_info, learning_rate, sigma_learning_rate = None, update_mode='deterministic',
+    def __init__(self, policy, mdp_info, learning_rate, sigma_learning_rate=None, update_mode='deterministic',
                  update_type='weighted', init_values=(0., 500.), minimize_wasserstein=True):
         self._update_mode = update_mode
         self._update_type = update_type
@@ -105,7 +105,7 @@ class ParticleQLearning(Particle):
 
 
 class ParticleDoubleQLearning(Particle):
-    def __init__(self, policy, mdp_info, learning_rate, update_mode='deterministic',
+    def __init__(self, policy, mdp_info, learning_rate, sigma_learning_rate=None, update_mode='deterministic',
                  update_type='weighted', init_values=(0., 500.)):
         super(ParticleDoubleQLearning, self).__init__(
             policy, mdp_info, learning_rate, update_mode,
@@ -120,8 +120,9 @@ class ParticleDoubleQLearning(Particle):
         for i in range(len(self.Qs[1])):
             self.Qs[1][i].table = self.Qs[0][i].table.copy()
             self.Q[i].table = self.Qs[0][i].table.copy()
-
-        self.alpha = [deepcopy(self.alpha), deepcopy(self.alpha)]
+        if sigma_learning_rate is None:
+            sigma_learning_rate = deepcopy(learning_rate)
+        self.alpha = [deepcopy(self.alpha), deepcopy(sigma_learning_rate)]
 
     def _update(self, state, action, reward, next_state, absorbing):
         if np.random.uniform() < .5:
