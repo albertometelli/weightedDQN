@@ -3,7 +3,7 @@ from copy import deepcopy
 from mushroom.algorithms.value import TD
 from mushroom.utils.table import EnsembleTable
 from scipy.stats import norm
-
+import sys
 class Particle(TD):
     def __init__(self, policy, mdp_info, learning_rate, sigma_learning_rate=None, update_mode='deterministic',
                  update_type='weighted', init_values=(0., 500.), minimize_wasserstein=True):
@@ -31,7 +31,8 @@ class ParticleQLearning(Particle):
         n_actions = len(mean_list)
         lower_limit = mean_list - 8 * sigma_list
         upper_limit = mean_list + 8 * sigma_list
-        epsilon = 1e2
+        epsilon = 1e-5
+        _epsilon = 1e-25
         n_trapz = 100
         x = np.zeros(shape=(n_trapz, n_actions))
         y = np.zeros(shape=(n_trapz, n_actions))
@@ -41,21 +42,20 @@ class ParticleQLearning(Particle):
                 p = 1
                 for k in range(n_actions):
                     if k != j:
-                        p *= norm.cdf(mean_list[j], loc=mean_list[k], scale=sigma_list[k])
+                        p *= norm.cdf(mean_list[j], loc=mean_list[k], scale=sigma_list[k] + _epsilon)
                 integrals[j] = p
             else:
                 x[:, j] = np.linspace(lower_limit[j], upper_limit[j], n_trapz)
-                y[:, j] = norm.pdf(x[:, j],loc=mean_list[j], scale=sigma_list[j])
+                y[:, j] = norm.pdf(x[:, j],loc=mean_list[j], scale=sigma_list[j] + _epsilon)
                 for k in range(n_actions):
                     if k != j:
-                        y[:, j] *= norm.cdf(x[:, j], loc=mean_list[k], scale=sigma_list[k])
+                        y[:, j] *= norm.cdf(x[:, j], loc=mean_list[k], scale=sigma_list[k] + _epsilon)
                 integrals[j] = (upper_limit[j] - lower_limit[j]) / (2 * (n_trapz - 1)) * (y[0, j] + y[-1, j] + 2 * np.sum(y[1:-1, j]))
-
         #print(np.sum(integrals))
         #assert np.isclose(np.sum(integrals), 1)
         with np.errstate(divide='raise'):
             try:
-                return integrals / np.sum(integrals)
+                return integrals / (np.sum(integrals) )
             except FloatingPointError:
                 print(integrals)
                 print(mean_list)
@@ -108,7 +108,7 @@ class ParticleDoubleQLearning(Particle):
     def __init__(self, policy, mdp_info, learning_rate, sigma_learning_rate=None, update_mode='deterministic',
                  update_type='weighted', init_values=(0., 500.)):
         super(ParticleDoubleQLearning, self).__init__(
-            policy, mdp_info, learning_rate, update_mode,
+            policy, mdp_info, learning_rate, sigma_learning_rate, update_mode,
             update_type, init_values)
 
         self.Qs = [EnsembleTable(2, mdp_info.size),
@@ -120,9 +120,8 @@ class ParticleDoubleQLearning(Particle):
         for i in range(len(self.Qs[1])):
             self.Qs[1][i].table = self.Qs[0][i].table.copy()
             self.Q[i].table = self.Qs[0][i].table.copy()
-        if sigma_learning_rate is None:
-            sigma_learning_rate = deepcopy(learning_rate)
-        self.alpha = [deepcopy(self.alpha), deepcopy(sigma_learning_rate)]
+        self.alpha = [deepcopy(self.alpha), deepcopy(self.alpha)]
+
 
     def _update(self, state, action, reward, next_state, absorbing):
         if np.random.uniform() < .5:
