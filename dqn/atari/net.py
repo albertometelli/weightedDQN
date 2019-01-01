@@ -204,10 +204,11 @@ class ConvNet:
                     self._target_q_sorted[:, i],
                     self._q_acted_sorted[:, i]
                 )
-            self._prob_exploration = tf.placeholder(tf.float32, (),
+            self._prob_exploration = tf.placeholder('float32', (),
                                          name='prob_exploration')
             tf.summary.scalar(convnet_pars["loss"], loss)
             tf.summary.scalar('average_q', tf.reduce_mean(self._q))
+            #tf.summary.scalar('average_std', tf.reduce_mean(tf.sqrt(tf.nn.moments(self._q, axes=[0])[1])))
             tf.summary.scalar('prob_exploration', self._prob_exploration)
             tf.summary.histogram('qs', self._q)
             self._merged = tf.summary.merge(

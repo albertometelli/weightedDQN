@@ -211,20 +211,20 @@ class GaussianNet:
             else:
                 self.loss_fuction = tf.losses.mean_squared_error
 
-            zeros = tf.fill(tf.shape(self._action), 0.)
 
-            loss = self.loss_fuction(zeros,(self._q_acted - self._target_q) ** 2 + \
-                                     tf.math.scalar_mul(
+            loss = U.huber_loss((self._q_acted - self._target_q) ** 2 + \
+                                     tf.scalar_mul(
                                          self.sigma_weight,
                                          (self._sigma_acted - self._target_sigma) ** 2))
-            self._prob_exploration = tf.placeholder(tf.float32, (),
+            self._prob_exploration = tf.placeholder('float32', (),
                                                     name='prob_exploration')
 
-            tf.summary.scalar(convnet_pars["loss"], loss)
+            tf.summary.scalar(convnet_pars["loss"], tf.reduce_mean(loss))
             tf.summary.scalar('average_q', tf.reduce_mean(self._q))
             tf.summary.scalar('average_sigma', tf.reduce_mean(self._sigma))
             tf.summary.scalar('prob_exploration', self._prob_exploration)
             tf.summary.histogram('qs', self._q)
+            tf.summary.histogram('qs', self._sigma)
             self._merged = tf.summary.merge(
                 tf.get_collection(tf.GraphKeys.SUMMARIES,
                                   scope=self._scope_name)
