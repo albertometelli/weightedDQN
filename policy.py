@@ -299,20 +299,37 @@ class WeightedGaussianPolicy(TDPolicy):
         lower_limit = mean_list - 8 * sigma_list
         upper_limit = mean_list + 8 * sigma_list
         n_trapz = 100
+        epsilon = 1e-5
+        _epsilon = 1e-25
         x = np.zeros(shape=(n_trapz, n_actions))
         y = np.zeros(shape=(n_trapz, n_actions))
+        integrals = np.zeros(n_actions)
         for j in range(n_actions):
-            x[:, j] = np.linspace(lower_limit[j], upper_limit[j], n_trapz)
-            y[:, j] = norm.pdf(x[:, j], loc=mean_list[j], scale=sigma_list[j])
-            for k in range(n_actions):
-                if k != j:
-                    y[:, j] *= norm.cdf(x[:, j], loc=mean_list[k], scale=sigma_list[k])
+            if sigma_list[j] < epsilon:
+                p = 1
+                for k in range(n_actions):
+                    if k != j:
+                        p *= norm.cdf(mean_list[j], loc=mean_list[k], scale=sigma_list[k] + _epsilon)
+                integrals[j] = p
+            else:
+                x[:, j] = np.linspace(lower_limit[j], upper_limit[j], n_trapz)
+                y[:, j] = norm.pdf(x[:, j], loc=mean_list[j], scale=sigma_list[j] + _epsilon)
+                for k in range(n_actions):
+                    if k != j:
+                        y[:, j] *= norm.cdf(x[:, j], loc=mean_list[k], scale=sigma_list[k] + _epsilon)
 
         integrals = ((upper_limit - lower_limit) / (2 * (n_trapz - 1))) * \
                     (y[0, :] + y[-1, :] + 2 * np.sum(y[1:-1, :], axis=0))
         #print(np.sum(integrals))
         #assert np.isclose(np.sum(integrals), 1)
-        return integrals
+        with np.errstate(divide='raise'):
+            try:
+                return integrals / (np.sum(integrals))
+            except FloatingPointError:
+                print(integrals)
+                print(mean_list)
+                print(sigma_list)
+                input()
 
     def draw_action(self, state):
         if not np.random.uniform() < self._epsilon(state):
