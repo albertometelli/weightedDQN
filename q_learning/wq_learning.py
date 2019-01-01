@@ -6,7 +6,7 @@ from scipy.stats import norm
 
 class Particle(TD):
     def __init__(self, policy, mdp_info, learning_rate, sigma_learning_rate = None, update_mode='deterministic',
-                 update_type='weighted', init_values=(0., 500.)):
+                 update_type='weighted', init_values=(0., 500.), minimize_wasserstein=True):
         self._update_mode = update_mode
         self._update_type = update_type
         self.Q = EnsembleTable(2, mdp_info.size)
@@ -19,7 +19,7 @@ class Particle(TD):
         if sigma_learning_rate is None:
             sigma_learning_rate = deepcopy(learning_rate)
         self.alpha = [deepcopy(self.alpha), deepcopy(sigma_learning_rate)]
-
+        self.minimize_wasserstein = minimize_wasserstein
     def _update(self, state, action, reward, next_state, absorbing):
         raise NotImplementedError
 
@@ -85,7 +85,8 @@ class ParticleQLearning(Particle):
                         try:
                             if self.minimize_wasserstein:
                                 sigma_next = np.sum(prob * sigma_next_all)
-                            sigma_next = np.sum((sigma_next_all + (mean_next - mean_next_all) ** 2) * prob)
+                            else:
+                                sigma_next = np.sum((sigma_next_all + (mean_next - mean_next_all) ** 2) * prob)
                         except FloatingPointError:
                             print(prob)
                             print(sigma_next_all)
@@ -146,7 +147,10 @@ class ParticleDoubleQLearning(Particle):
                 elif self._update_type == 'weighted':
                     prob = ParticleQLearning._compute_prob_max(mean_next_all, sigma_next_all)
                     mean_next = np.sum(mean_next_all_2 * prob)
-                    sigma_next = np.sum((sigma_next_all_2 + (mean_next - mean_next_all_2) ** 2) * prob)
+                    if self.minimize_wasserstein:
+                        sigma_next = np.sum(sigma_next_all_2 * prob)
+                    else:
+                        sigma_next = np.sum((sigma_next_all_2 + (mean_next - mean_next_all_2) ** 2) * prob)
 
                 else:
                     raise ValueError()
