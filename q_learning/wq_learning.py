@@ -5,7 +5,7 @@ from mushroom.utils.table import EnsembleTable
 from scipy.stats import norm
 
 class Particle(TD):
-    def __init__(self, policy, mdp_info, learning_rate, update_mode='deterministic',
+    def __init__(self, policy, mdp_info, learning_rate, sigma_learning_rate = None, update_mode='deterministic',
                  update_type='weighted', init_values=(0., 500.)):
         self._update_mode = update_mode
         self._update_type = update_type
@@ -16,8 +16,9 @@ class Particle(TD):
 
         super(Particle, self).__init__(self.Q, policy, mdp_info,
                                        learning_rate)
-
-        self.alpha = [deepcopy(self.alpha)] * 2
+        if sigma_learning_rate is None:
+            sigma_learning_rate = deepcopy(learning_rate)
+        self.alpha = [deepcopy(self.alpha), deepcopy(sigma_learning_rate)]
 
     def _update(self, state, action, reward, next_state, absorbing):
         raise NotImplementedError

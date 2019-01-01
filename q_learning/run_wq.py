@@ -22,6 +22,7 @@ from wq_learning import ParticleQLearning, ParticleDoubleQLearning
 
 sys.path.append('..')
 from policy import BootPolicy, WeightedPolicy, WeightedGaussianPolicy
+from parameter import LogarithmicDecayParameter
 from envs.knight_quest import KnightQuest
 from envs.chain import generate_chain
 from envs.loop import generate_loop
@@ -90,26 +91,31 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         max_steps = 500000
         evaluation_frequency = 5000
         test_samples = 5000
+        R = 7
     elif name == 'Chain':
         mdp = generate_chain(horizon=100)
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
+        R = 10
     elif name == 'Loop':
         mdp = generate_loop(horizon=100)
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
+        R = 2
     elif name == 'RiverSwim':
         mdp = generate_river(horizon=100)
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
+        R = 1000
     elif name == 'SixArms':
         mdp = generate_arms(horizon=100)
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
+        R = 10000
     elif name == 'KnightQuest':
         mdp = None
         try:
@@ -123,6 +129,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
+        R = 1
     else:
         raise NotImplementedError
 
@@ -169,11 +176,20 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             warnings.warn('Particle QL available with only weighted policies!')
             policy = 'weighted-gaussian'
         pi = policy_dict[policy]()
+        learning_rate = ExponentialDecayParameter(value=1., decay_exp=lr_exp,
+                                                  size=mdp.info.size)
+        algorithm_params = dict(learning_rate=learning_rate)
+        q_0 = (q_max - q_min) / 2
+        sigma_0 = (q_max - q_min) / np.sqrt(12)
+        C = 2 * R / (np.sqrt(2 * np.pi) * (1 - gamma) * sigma_0)
+        sigma_lr = LogarithmicDecayParameter(value=1., C=C,
+                                                  size=mdp.info.size)
         algorithm_params = dict(
                                 update_mode=update_mode,
                                 update_type=update_type,
-                                init_values=((q_max - q_min) / 2,
-                                             (q_max - q_min) / np.sqrt(12)),
+                                sigma_learning_rate=sigma_lr,
+                                init_values=(q_0,
+                                             sigma_0),
                                 **algorithm_params)
         if double:
             agent = ParticleDoubleQLearning(pi, mdp.info, **algorithm_params)
