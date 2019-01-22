@@ -7,10 +7,12 @@ from mushroom.utils.table import EnsembleTable
 
 class Particle(TD):
     def __init__(self, policy, mdp_info, learning_rate, n_approximators=10, update_mode='deterministic',
-                 update_type='weighted', q_min=0, q_max=1,init_values=None):
+                 update_type='weighted', q_min=0, q_max=1, init_values=None, delta =0.1):
         self._n_approximators = n_approximators
         self._update_mode = update_mode
         self._update_type = update_type
+        self.delta = delta
+        self.quantiles = [i * 1. / (n_approximators - 1) for i in range(n_approximators)]
         self.Q = EnsembleTable(self._n_approximators, mdp_info.size)
         if init_values is None:
             init_values = np.linspace(q_min, q_max, n_approximators)
@@ -57,7 +59,6 @@ class ParticleQLearning(Particle):
                         reward - q_current[i])
         else:
             q_next_all = np.array([x[next_state] for x in self.Q.model])
-
             if self._update_mode == 'deterministic':
                 if self._update_type == 'mean':
                     q_next_mean = np.mean(q_next_all, axis=0)
@@ -96,6 +97,26 @@ class ParticleQLearning(Particle):
                 elif self._update_type == 'weighted':
                     prob = ParticleQLearning._compute_prob_max(q_next_all)
                     q_next = np.sum(q_next_all * prob, axis=1)
+
+                elif self._update_type == 'optimistic':
+                    q_next_mean = np.mean(q_next_all, axis=0)
+
+                    bounds = np.zeros(self.mdp_info.size[-1])
+                    for a in range(self.mdp_info.size[-1]):
+                        particles = q_next_all[:, a]
+                        for p in range(self._n_approximators):
+                            if self.quantiles[p] == 1 - self.delta:
+                                bounds[a] = q_next_mean[a] + particles[p]
+                                break
+                            elif self.quantiles[p] > 1 - self.delta:
+                                '''out[a] = ((q - quantiles[p-1]) * particles[p-1] + \
+                                         (quantiles[p] - q + 1) * particles[p]) * 
+                                         (particles[p] - particles[p-1])'''
+                                bounds[a] = q_next_mean[a] + particles[p]
+                                break
+
+                    next_index = np.array([np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())])
+                    q_next = q_next_all[:, next_index]
                 else:
                     raise ValueError()
             else:

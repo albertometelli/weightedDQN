@@ -18,7 +18,7 @@ from mushroom.policy.td_policy import EpsGreedy, Boltzmann
 from mushroom.algorithms.value.td import QLearning, DoubleQLearning
 from mushroom.utils.table import Table
 from boot_q_learning import BootstrappedQLearning, BootstrappedDoubleQLearning
-from wq_learning import ParticleQLearning, ParticleDoubleQLearning
+from wq_learning import GaussianQLearning, GaussianDoubleQLearning
 
 sys.path.append('..')
 from policy import BootPolicy, WeightedPolicy, WeightedGaussianPolicy
@@ -109,13 +109,13 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
-        R = 1000
+        R = 10000
     elif name == 'SixArms':
         mdp = generate_arms(horizon=100)
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
-        R = 10000
+        R = 6000
     elif name == 'KnightQuest':
         mdp = None
         try:
@@ -192,9 +192,9 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
                                              sigma_0),
                                 **algorithm_params)
         if double:
-            agent = ParticleDoubleQLearning(pi, mdp.info, **algorithm_params)
+            agent = GaussianDoubleQLearning(pi, mdp.info, **algorithm_params)
         else:
-            agent = ParticleQLearning(pi, mdp.info, **algorithm_params)
+            agent = GaussianQLearning(pi, mdp.info, **algorithm_params)
         epsilon_train = Parameter(0)
     else:
         raise ValueError()

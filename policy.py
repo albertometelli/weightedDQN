@@ -154,8 +154,12 @@ class WeightedPolicy(TDPolicy):
                 else:
                     q_list = self._approximator.predict(state).squeeze()
 
-                prob = WeightedPolicy._compute_prob_max(q_list)
-                max_a = np.array([np.random.choice(np.argwhere(prob == np.max(prob)).ravel())])
+                '''prob = WeightedPolicy._compute_prob_max(q_list)
+                print(q_list)
+                print(prob)
+                input()'''
+                means = np.mean(q_list, axis=0)
+                max_a = np.array([np.random.choice(np.argwhere(means == np.max(means)).ravel())])
                 return max_a
             else:
                 if isinstance(self._approximator.model, list):
@@ -188,6 +192,54 @@ class WeightedPolicy(TDPolicy):
 
     def update_epsilon(self, state):
         self._epsilon(state)
+
+
+class UCBPolicy(TDPolicy):
+    def __init__(self, quantile_func=None, mu=None, delta=0.1, q_max=100):
+
+        super(UCBPolicy, self).__init__()
+        if quantile_func is None:
+            self.quantile_func = lambda _: 0
+        else:
+            self.quantile_func = quantile_func
+        if mu is None:
+            self.mu =lambda _: 0
+        else:
+            self.mu = mu
+        self.delta = delta
+        self. q_max = q_max
+        self._evaluation = False
+
+    def draw_action(self, state):
+        means = self.mu(state)
+        if self._evaluation:
+            return np.array([np.random.choice(np.argwhere(means == np.max(means)).ravel())])
+        bounds = self.quantile_func(state, 1 - self.delta)
+        #qs = means + bounds
+        bounds = np.clip(bounds, None, self.q_max)
+        a = np.array([np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())])
+        return a
+
+    def set_epsilon(self, epsilon):
+        pass
+
+    def set_eval(self, eval):
+        self._evaluation = eval
+
+    def set_idx(self, idx):
+        pass
+
+    def update_epsilon(self, state):
+        pass
+
+    def set_q(self, q):
+        pass
+
+    def set_quantile_func(self, quantile_func):
+        self.quantile_func = quantile_func
+
+    def set_mu(self, mu):
+        self.mu = mu
 
 class VPIPolicy(TDPolicy):
 
@@ -369,7 +421,7 @@ class WeightedGaussianPolicy(TDPolicy):
                 for a in range(self._approximator.n_actions):
                     mean = means[a]
                     sigma = sigmas[a]
-                    samples[a] = np.random.normal(loc=mean, scale=sigma)
+                    samples[a] = np.random.normal(loc=mean, scale=sigma+1e-15)
                 try:
                     max_a = np.array([np.random.choice(np.argwhere(samples == np.max(samples)).ravel())])
                 except:

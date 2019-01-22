@@ -85,10 +85,9 @@ class LogarithmicDecayParameter(Parameter):
     """
     def __init__(self, value, C=1., min_value=None, size=(1,)):
         self._C = C #(2R/(c np.sqrt(2 pi) (1-gamma) sigma_0))
-
         super(LogarithmicDecayParameter, self).__init__(value, min_value, size)
 
     def _compute(self, *idx, **kwargs):
         n = np.maximum(self._n_updates[idx], 1)
-
-        return 1 - np.e ** (-(1 / (n+1) * (self._C + 2 * np.log(n + 1))))
+        lr = 1 - np.e ** (-(1 / (n+1) * (self._C + 2 * np.log(n + 1))))
+        return lr

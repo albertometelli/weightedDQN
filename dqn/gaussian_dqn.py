@@ -131,13 +131,13 @@ class GaussianDQN(Agent):
         max_q = np.zeros((q.shape[0]))
         max_sigma = np.zeros((q.shape[0]))
         probs = []
-        prob_explore = np.zeros(q.shape[0])
+        '''prob_explore = np.zeros(q.shape[0])
         for i in range(q.shape[0]):  # for each batch
             means = q[i, :]
             sigmas = sigma[i, :]
             prob = GaussianDQN._compute_prob_max(means, sigmas)
             probs.append(prob)
-            prob_explore[i] = 1. - np.max(prob)
+            prob_explore[i] = 1. - np.max(prob)'''
         if not self.weighted_update:
             best_actions = np.argmax(q, axis=1)
             for i in range(q.shape[0]):
@@ -151,7 +151,7 @@ class GaussianDQN(Agent):
                 max_q[i] = np.sum(means * prob)
                 max_sigma[i] = np.sum(sigmas * prob)
 
-        return max_q, max_sigma, np.mean(prob_explore)
+        return max_q, max_sigma, -1 #np.mean(prob_explore)
 
     def draw_action(self, state):
         action = super(GaussianDQN, self).draw_action(np.array(state))

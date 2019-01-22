@@ -63,8 +63,16 @@ class ParticleDQN(Agent):
 
             q = reward.reshape(self._batch_size,
                                1) + self.mdp_info.gamma * q_next
+            diff = 0
+            margin = 0.05
+            for i in range(q.shape[0]):
+                for j in range(q.shape[1] - 1):
+                    if q[i, j + 1] - q[i, j] > diff:
+                        diff = q[i, j + 1] - q[i, j]
+            margin = diff
             self.approximator.fit(state, action, q, mask=mask,
                                   prob_exploration=prob_explore,
+                                  margin=margin,
                                   **self._fit_params)
 
             self._n_updates += 1
@@ -95,15 +103,18 @@ class ParticleDQN(Agent):
         q = np.array(self.target_approximator.predict(next_state))[0]
         for i in range(q.shape[1]):
             if absorbing[i]:
-                q[:, i, :] *= 1. - absorbing[i]
+                q[:, i, :] *= 0
 
         max_q = np.zeros((q.shape[1], q.shape[0]))
         probs = []
+        parts = []
         prob_explore = np.zeros(q.shape[1])
         for i in range(q.shape[1]):  # for each batch
             particles = q[:, i, :]
+            particles = np.sort(particles, axis=0)
             prob = ParticleDQN._compute_prob_max(particles)
             probs.append(prob)
+            parts.append(particles)
             prob_explore[i] = (1 - np.max(prob))
         if not self.weighted_update:
             best_actions = np.argmax(np.mean(q, axis=0), axis=1)
@@ -111,7 +122,7 @@ class ParticleDQN(Agent):
                 max_q[i, :] = q[:, i, best_actions[i]]
         else:
             for i in range(q.shape[1]): #for each batch 
-                particles = q[:, i, :]
+                particles = parts[i]
                 prob = probs[i]
                 max_q[i, :] = np.dot(particles, prob)
         return max_q, np.mean(prob_explore)

@@ -222,9 +222,9 @@ class GaussianNet:
             tf.summary.scalar(convnet_pars["loss"], tf.reduce_mean(loss))
             tf.summary.scalar('average_q', tf.reduce_mean(self._q))
             tf.summary.scalar('average_sigma', tf.reduce_mean(self._sigma))
-            tf.summary.scalar('prob_exploration', self._prob_exploration)
-            tf.summary.histogram('qs', self._q)
-            tf.summary.histogram('qs', self._sigma)
+            #tf.summary.scalar('prob_exploration', self._prob_exploration)
+            #tf.summary.histogram('qs', self._q)
+            #tf.summary.histogram('qs', self._sigma)
             self._merged = tf.summary.merge(
                 tf.get_collection(tf.GraphKeys.SUMMARIES,
                                   scope=self._scope_name)

@@ -24,7 +24,7 @@ def print_epoch(epoch):
 
 def experiment():
     np.random.seed()
-
+    #tf.set_random_seed()
     # Argument parser
     parser = argparse.ArgumentParser()
 
@@ -76,20 +76,23 @@ def experiment():
     arg_alg.add_argument("--double", action='store_true',
                          help="Flag to use the DoubleDQN version of the algorithm.")
     arg_alg.add_argument("--weighted-update", action='store_true')
+    arg_alg.add_argument("--multiple-nets", action='store_true',
+                         help="if to use separate nets for every environment")
     arg_alg.add_argument("--n-approximators", type=int, default=10,
                          help="Number of approximators used in the ensemble for"
                               "Averaged DQN.")
     arg_alg.add_argument("--loss", 
                              choices=['squared_loss',
                                       'huber_loss',
+                                      'triple_loss'
                                      ],
                          default='huber_loss',
                          help="Loss functions used in the approximator")
-    arg_alg.add_argument("--q-max", type=float, default=1000,
+    arg_alg.add_argument("--q-max", type=float, default=100,
                          help='Upper bound for initializing the heads of the network')
     arg_alg.add_argument("--q-min", type=float, default=0,
                          help='Lower bound for initializing the heads of the network')
-    arg_alg.add_argument("--sigma-weight", type=float, default=1,
+    arg_alg.add_argument("--sigma-weight", type=float, default=1.0,
                          help='Used in gaussian learning to explore more')
     arg_alg.add_argument("--init-type", choices=['boot', 'linspace'], default='linspace',
                          help='Type of initialization for the network')
@@ -176,7 +179,11 @@ def experiment():
         else:
             agent_algorithm = DQN
     else:
-        from net import ConvNet
+        if args.multiple_nets:
+            from net_multiple import ConvNet
+            print("Using Multiple Nets")
+        else:
+            from net import ConvNet
         if args.double:
             agent_algorithm = ParticleDoubleDQN
         else:
@@ -225,8 +232,7 @@ def experiment():
             initial_replay_size=1,
             max_replay_size=1,
             clip_reward=True,
-            train_frequency=args.train_frequency,
-            target_update_frequency=args.target_update_frequency,
+            target_update_frequency=args.target_update_frequency // args.train_frequency,
         )
         if args.alg == 'boot':
             algorithm_params['p_mask'] = args.p_mask
@@ -242,9 +248,9 @@ def experiment():
 
         if args.alg in ['gaussian', 'particle']:
             algorithm_params['weighted_update']=args.weighted_update
-            approximator_params['q_min']=args.q_min
-            approximator_params['q_max']=args.q_max
-            approximator_params['loss']=args.loss
+            approximator_params['q_min']= args.q_min
+            approximator_params['q_max']= args.q_max
+            approximator_params['loss']= args.loss
             approximator_params['init_type'] = args.init_type
             approximator_params['sigma_weight'] = args.sigma_weight
         if  args.alg in ['particle', 'boot']:
@@ -253,7 +259,7 @@ def experiment():
         agent = agent_algorithm(approximator, pi, mdp.info,
                           approximator_params=approximator_params,
                           **algorithm_params)
-        print(agent)
+        #print(agent)
         # Algorithm
         core_test = Core(agent, mdp)
 

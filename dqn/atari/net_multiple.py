@@ -3,23 +3,6 @@ import tensorflow as tf
 
 
 class ConvNet:
-
-    @staticmethod
-    def triple_loss(particles, targets, k, margin):
-        loss = 0
-        for i in range(k):
-            d_p = tf.reduce_mean(tf.square(particles[:, i] - targets[:, i]), 0)
-            if i == 0:
-                d_n = tf.reduce_mean(tf.square(particles[:, i] - targets[:, i+1]), 0)
-            elif i == k-1:
-                d_n = tf.reduce_mean(tf.square(particles[:, i] - targets[:, i - 1]), 0)
-            else:
-                d_n = 0.5 * tf.reduce_mean(tf.square(particles[:, i] - targets[:, i - 1]), 0) + \
-                      0.5 * tf.reduce_mean(tf.square(particles[:, i] - targets[:, i - 1]), 0)
-
-            l = tf.maximum(d_p, margin + d_p - d_n)
-            loss += l
-        return loss / k
     def __init__(self, name=None, folder_name=None, load_path=None,
                  **convnet_pars):
         self._name = name
@@ -67,8 +50,7 @@ class ConvNet:
                        self._action: a.ravel().astype(np.uint8),
                        self._target_q: q,
                        self._mask: mask,
-                       self._prob_exploration: prob_exploration,
-                       self._margin: margin}
+                       self._prob_exploration: prob_exploration}
         )
         if hasattr(self, '_train_writer'):
             self._train_writer.add_summary(summaries, self._train_count)
@@ -134,35 +116,6 @@ class ConvNet:
                 self._mask = tf.placeholder(
                     tf.float32, shape=[None, convnet_pars['n_approximators']])
 
-            with tf.variable_scope('Convolutions'):
-                hidden_1 = tf.layers.conv2d(
-                    self._x / 255., 32, 8, 4, activation=tf.nn.relu,
-                    kernel_initializer=tf.glorot_uniform_initializer(),
-                    name='hidden_1'
-                )
-                hidden_2 = tf.layers.conv2d(
-                    hidden_1, 64, 4, 2, activation=tf.nn.relu,
-                    kernel_initializer=tf.glorot_uniform_initializer(),
-                    name='hidden_2'
-                )
-                hidden_3 = tf.layers.conv2d(
-                    hidden_2, 64, 3, 1, activation=tf.nn.relu,
-                    kernel_initializer=tf.glorot_uniform_initializer(),
-                    name='hidden_3'
-                )
-                flatten = tf.reshape(hidden_3, [-1, 7 * 7 * 64], name='flatten')
-
-                '''def scale_gradient():
-                    with flatten.graph.gradient_override_map(
-                            {'Identity': 'scaled_gradient_' + self._name}):
-                        return tf.identity(flatten, name='identity')
-
-                @tf.RegisterGradient('scaled_gradient_' + self._name)
-                def scaled_gradient(op, grad):
-                    return grad / float(convnet_pars['n_approximators'])'''
-
-                identity = flatten
-
             self._features = list()
             self._q = list()
             self._q_acted = list()
@@ -179,25 +132,54 @@ class ConvNet:
                 kernel_initializer = lambda _: tf.glorot_uniform_initializer()
                 bias_initializer = lambda i: tf.constant_initializer(initial_values[i])
 
+            def scale_gradient(flatten, i):
+                with flatten.graph.gradient_override_map(
+                        {'Identity': 'scaled_gradient_' + self._name}):
+                    return tf.identity(flatten, name='identity_' + str(i))
+
+            @tf.RegisterGradient('scaled_gradient_' + self._name)
+            def scaled_gradient(op, grad):
+                return grad / float(1)
+
             for i in range(self.n_approximators):
-                with tf.variable_scope('head_' + str(i)):
-                    self._features.append(tf.layers.dense(
-                        identity, 512, activation=tf.nn.relu,
-                        kernel_initializer=tf.glorot_uniform_initializer(),
-                        name='_features_' + str(i)
-                    ))
-                    self._q.append(tf.layers.dense(
-                        self._features[i],
-                        convnet_pars['output_shape'][0],
-                        kernel_initializer=kernel_initializer(i),
-                        bias_initializer=bias_initializer(i),
-                        name='q_' + str(i)
-                    ))
-                    self._q_acted.append(
-                        tf.reduce_sum(self._q[i] * action_one_hot,
-                                      axis=1,
-                                      name='q_acted_' + str(i))
-                    )
+                with tf.variable_scope('Net_' + str(i)):
+                    with tf.variable_scope('Convolutions_' + str(i)):
+                        hidden_1 = tf.layers.conv2d(
+                            self._x / 255., 32, 8, 4, activation=tf.nn.relu,
+                            kernel_initializer=tf.glorot_uniform_initializer(),
+                            name='hidden_1'
+                        )
+                        hidden_2 = tf.layers.conv2d(
+                            hidden_1, 64, 4, 2, activation=tf.nn.relu,
+                            kernel_initializer=tf.glorot_uniform_initializer(),
+                            name='hidden_2'
+                        )
+                        hidden_3 = tf.layers.conv2d(
+                            hidden_2, 64, 3, 1, activation=tf.nn.relu,
+                            kernel_initializer=tf.glorot_uniform_initializer(),
+                            name='hidden_3'
+                        )
+                        flatten = tf.reshape(hidden_3, [-1, 7 * 7 * 64], name='flatten')
+
+                        identity = scale_gradient(flatten, i)
+                    with tf.variable_scope('head_' + str(i)):
+                        self._features.append(tf.layers.dense(
+                            identity, 512, activation=tf.nn.relu,
+                            kernel_initializer=tf.glorot_uniform_initializer(),
+                            name='_features_' + str(i)
+                        ))
+                        self._q.append(tf.layers.dense(
+                            self._features[i],
+                            convnet_pars['output_shape'][0],
+                            kernel_initializer=kernel_initializer(i),
+                            bias_initializer=bias_initializer(i),
+                            name='q_' + str(i)
+                        ))
+                        self._q_acted.append(
+                            tf.reduce_sum(self._q[i] * action_one_hot,
+                                          axis=1,
+                                          name='q_acted_' + str(i))
+                        )
 
             self._q_acted = tf.transpose(self._q_acted)
 
@@ -206,58 +188,73 @@ class ConvNet:
                 [None, convnet_pars['n_approximators']],
                 name='target_q'
             )
-            self._margin = tf.placeholder('float32', (),
-                                                    name='margin')
+
             self._q_acted_sorted = tf.contrib.framework.sort(self._q_acted, axis=1)
             self._target_q_sorted = tf.contrib.framework.sort(self._target_q, axis=1)
 
-            loss = 0.
+            loss = []
+            optimizer = convnet_pars['optimizer']
+            self._train_step = []
+            if optimizer['name'] == 'rmspropcentered':
+                opt_func = tf.train.RMSPropOptimizer
+                opt_params = dict(
+                    learning_rate=optimizer['lr'],
+                    decay=optimizer['decay'],
+                    epsilon=optimizer['epsilon'],
+                    centered=True
+                )
+
+            elif optimizer['name'] == 'rmsprop':
+                opt_func = tf.train.RMSPropOptimizer
+                opt_params = dict(
+                    learning_rate=optimizer['lr'],
+                    decay=optimizer['decay'],
+                    epsilon=optimizer['epsilon']
+                )
+            elif optimizer['name'] == 'adam':
+                opt_func = tf.train.AdamOptimizer
+                opt_params = dict(
+                    learning_rate=optimizer['lr'],
+                )
+
+            elif optimizer['name'] == 'adadelta':
+                opt_func = tf.train.AdadeltaOptimizer
+                opt_params = dict(
+                    learning_rate=optimizer['lr']
+                )
+            else:
+                raise ValueError('Unavailable optimizer selected.')
+            self._margin = tf.placeholder('float32', (),
+                                          name='margin')
             if convnet_pars["loss"] == "huber_loss":
                 self.loss_fuction = tf.losses.huber_loss
             else:
                 self.loss_fuction = tf.losses.mean_squared_error
-            k = convnet_pars['n_approximators']
-            if convnet_pars["loss"] == "triple_loss":
 
-                loss = ConvNet.triple_loss(self._q_acted_sorted, self._target_q_sorted, k , self._margin)
-            else:
-                for i in range(convnet_pars['n_approximators']):
+            for i in range(convnet_pars['n_approximators']):
+                loss.append(self.loss_fuction(
+                    self._target_q_sorted[:, i],
+                    self._q_acted_sorted[:, i]
+                ))
+                net_vars = tf.contrib.framework.get_variables(
+                    scope=self._scope_name + 'Net_' + str(i),
+                )
+                #print(net_vars)
+                self._train_step.append(opt_func(**opt_params).minimize(loss=loss[i], var_list=net_vars, name='train_step_' + str(i)))
 
-                    loss += self.loss_fuction(
-                        self._target_q_sorted[:, i],
-                        self._q_acted_sorted[:, i]
-                    )
-                loss = loss / k
             self._prob_exploration = tf.placeholder('float32', (),
                                                     name='prob_exploration')
-            tf.summary.scalar(convnet_pars["loss"], loss)
+            tf.summary.scalar(convnet_pars["loss"], tf.reduce_sum(loss))
             tf.summary.scalar('average_q', tf.reduce_mean(self._q))
             # tf.summary.scalar('average_std', tf.reduce_mean(tf.sqrt(tf.nn.moments(self._q, axes=[0])[1])))
             tf.summary.scalar('prob_exploration', self._prob_exploration)
-            tf.summary.histogram('qs', self._q)
+            # tf.summary.histogram('qs', self._q)
             self._merged = tf.summary.merge(
                 tf.get_collection(tf.GraphKeys.SUMMARIES,
                                   scope=self._scope_name)
             )
 
-            optimizer = convnet_pars['optimizer']
-            if optimizer['name'] == 'rmspropcentered':
-                opt = tf.train.RMSPropOptimizer(learning_rate=optimizer['lr'],
-                                                decay=optimizer['decay'],
-                                                epsilon=optimizer['epsilon'],
-                                                centered=True)
-            elif optimizer['name'] == 'rmsprop':
-                opt = tf.train.RMSPropOptimizer(learning_rate=optimizer['lr'],
-                                                decay=optimizer['decay'],
-                                                epsilon=optimizer['epsilon'])
-            elif optimizer['name'] == 'adam':
-                opt = tf.train.AdamOptimizer(learning_rate=optimizer['lr'])
-            elif optimizer['name'] == 'adadelta':
-                opt = tf.train.AdadeltaOptimizer(learning_rate=optimizer['lr'])
-            else:
-                raise ValueError('Unavailable optimizer selected.')
-
-            self._train_step = opt.minimize(loss=loss)
+            # self._train_step = opt.minimize(loss=loss)
 
             initializer = tf.variables_initializer(
                 tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
@@ -285,9 +282,10 @@ class ConvNet:
             tf.add_to_collection(self._scope_name + '_q_' + str(i), self._q[i])
             tf.add_to_collection(self._scope_name + '_q_acted_' + str(i),
                                  self._q_acted[i])
+            tf.add_to_collection(self._scope_name + '_train_step_' + str(i), self._train_step[i])
         tf.add_to_collection(self._scope_name + '_target_q', self._target_q)
         tf.add_to_collection(self._scope_name + '_merged', self._merged)
-        tf.add_to_collection(self._scope_name + '_train_step', self._train_step)
+
         tf.add_to_collection(self._scope_name + '_mask', self._mask)
 
     def _restore_collection(self, convnet_pars):
@@ -297,25 +295,25 @@ class ConvNet:
         features = list()
         q = list()
         q_acted = list()
+        train_step = list()
         for i in range(convnet_pars['n_approximators']):
             features.append(tf.get_collection(
                 self._scope_name + '_features_' + str(i))[0])
             q.append(tf.get_collection(self._scope_name + '_q_' + str(i))[0])
             q_acted.append(tf.get_collection(
                 self._scope_name + '_q_acted_' + str(i))[0])
+            train_step.append(tf.get_collection(
+                self._scope_name + '_train_step_' + str(i))[0])
 
+        self._train_step = train_step
         self._features = features
         self._q = q
         self._q_acted = q_acted
         self._target_q = tf.get_collection(self._scope_name + '_target_q')[0]
         self._merged = tf.get_collection(self._scope_name + '_merged')[0]
-        self._train_step = tf.get_collection(
-            self._scope_name + '_train_step')[0]
 
         ##needs to be saved
         self._mask = tf.placeholder(
             tf.float32, shape=[None, convnet_pars['n_approximators']])
         # self._mask = tf.get_collection( self._scope_name + '_mask')[0]
-
-
         self._train_count = 0

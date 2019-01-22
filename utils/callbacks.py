@@ -44,3 +44,52 @@ class CollectQs:
 
         """
         return self._qs
+
+class CollectVs:
+    """
+    This callback can be used to collect the regret
+
+    """
+    def __init__(self, mdp, agent, evaluate_policy,frequency =10000):
+        """
+        Constructor.
+
+        Args:
+
+
+        """
+        self.evaluate_policy = evaluate_policy
+        self.mdp = mdp
+        self.agent = agent
+        self.frequency = frequency
+        self.collect = True
+        self.count = 0
+        self._vs = list()
+
+    def on(self):
+        self.collect = True
+
+    def off(self):
+        self.collect = False
+
+    def __call__(self, dataset):
+        """
+        Add action values to the action-values list.
+
+        Args:
+            **kwargs (dict): empty dictionary.
+
+        """
+
+        if self.count % self.frequency == 0 and self.collect:
+            self._vs.append(self.evaluate_policy(self.mdp.p, self.mdp.r, self.agent.get_policy()))
+            self.count = 0
+        if self.collect:
+            self.count +=1
+    def get_values(self):
+        """
+        Returns:
+             The current action-values list.
+
+        """
+        return self._vs
