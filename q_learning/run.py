@@ -242,6 +242,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         pi = agent
         epsilon_train = Parameter(0)
     elif algorithm == 'delayed-ql':
+        theoretic_m = delayed_m
         if regret_test:
             gamma = mdp.info.gamma
             Vmax = R / (1 - gamma)
@@ -562,39 +563,39 @@ if __name__ == '__main__':
     arg_alg.add_argument("--update-type",
                           choices=['mean', 'weighted', 'optimistic'],
                           default='',
-                          help='Kind of update to perform (only ParticleQLearning).')
+                          help='Kind of update to perform (only WQL algorithms).')
     arg_alg.add_argument("--policy",
                           choices=['weighted', 'vpi', 'boot', 'boltzmann', 'eps-greedy', 'ucb', 'weighted-gaussian'],
                           default='',
                           help='Kind of policy to use (not all available for all).')
     arg_alg.add_argument("--n-approximators", type=int, default=20,
-                         help="Number of approximators used in the ensemble.")
+                         help="Number of particles used (Particle QL).")
     arg_alg.add_argument("--horizon", type=int, default=1000,
                          help="Horizon of r-max algorithm.")
     arg_alg.add_argument("--m", type=int, default=1000,
                          help="threshold for r-max algorithm.")
     arg_alg.add_argument("--delayed-m", type=float, default=1.0,
-                         help="epsilon arameter of delayed-ql.")
+                         help="m parameter of delayed-ql.")
     arg_alg.add_argument("--epsilon", type=int, default=1.0,
                          help="threshold for delayed-q algorithm.")
     arg_alg.add_argument("--q-max", type=float, default=40,
-                         help='Upper bound for initializing the heads of the network (only ParticleQLearning).')
+                         help='Upper bound for initializing the distributions(only WQL and Boot-QL).')
     arg_alg.add_argument("--q-min", type=float, default=0,
-                         help='Lower bound for initializing the heads of the network (only ParticleQLearning).')
+                         help='Lower bound for initializing the distributions (only WQL and Boot-QL).')
     arg_alg.add_argument("--lr-exp", type=float, default=0.2,
                          help='Exponential decay for lr')
     arg_alg.add_argument("--a", type=float, default=1.1,
-                         help='numerator for learning rate')
+                         help='numerator for learning rate in the regret test')
     arg_alg.add_argument("--b", type=float, default=2.0,
-                         help='shift for denominator for learning rate')
+                         help='shift for denominator for learning rate in the regret test')
     arg_alg.add_argument("--delta", type=float, default=0.1,
                          help='confidence bound parameter')
     arg_alg.add_argument("--double", type=str, default='',
-                         help='Whether to use double.')
+                         help='Whether to use double estimators.')
     arg_alg.add_argument("--log-lr",  action='store_true',
-                         help='Whether to use loga learning rate for gaussian-ql.')
+                         help='Whether to use log learning rate for gaussian-ql.')
     arg_alg.add_argument("--regret-test", action='store_true',
-                         help='')
+                         help='Whether to run the regret tests')
     arg_run = parser.add_argument_group('Run')
     arg_run.add_argument("--n-experiments", type=int, default=10,
                          help='Number of experiments to execute.')
@@ -602,8 +603,10 @@ if __name__ == '__main__':
                          help='Directory where to save data.')
     arg_run.add_argument("--seed", type=int, default=0,
                          help='Seed.')
-    arg_run.add_argument("--collect-qs", action='store_true')
-    arg_run.add_argument("--debug", action='store_true')
+    arg_run.add_argument("--collect-qs", action='store_true',
+                         help="Whether to collect the q_values for each timestep.")
+    arg_run.add_argument("--debug", action='store_true',
+                         help="Debug flag for the regret test.")
 
     args = parser.parse_args()
     n_experiment = args.n_experiments

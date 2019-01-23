@@ -79,10 +79,7 @@ class Parameter(object):
 
 
 class LogarithmicDecayParameter(Parameter):
-    """
-    This class implements a exponentially decaying parameter according to the
-    number of times it has been used.
-    """
+
     def __init__(self, value, C=1., min_value=None, size=(1,)):
         self._C = C #(2R/(c np.sqrt(2 pi) (1-gamma) sigma_0))
         super(LogarithmicDecayParameter, self).__init__(value, min_value, size)
