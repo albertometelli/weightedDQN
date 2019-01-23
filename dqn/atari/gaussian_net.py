@@ -1,6 +1,14 @@
 import numpy as np
 import tensorflow as tf
-import baselines.common.tf_util as U
+
+
+def huber_loss(x, delta=1.0):
+    """Reference: https://en.wikipedia.org/wiki/Huber_loss"""
+    return tf.where(
+        tf.abs(x) < delta,
+        tf.square(x) * 0.5,
+        delta * (tf.abs(x) - 0.5 * delta)
+)
 
 class GaussianNet:
     def __init__(self, name=None, folder_name=None, load_path=None,
@@ -212,7 +220,7 @@ class GaussianNet:
                 self.loss_fuction = tf.losses.mean_squared_error
 
 
-            loss = U.huber_loss((self._q_acted - self._target_q) ** 2 + \
+            loss = huber_loss((self._q_acted - self._target_q) ** 2 + \
                                      tf.scalar_mul(
                                          self.sigma_weight,
                                          (self._sigma_acted - self._target_sigma) ** 2))
