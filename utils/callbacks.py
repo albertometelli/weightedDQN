@@ -1,5 +1,5 @@
 from copy import deepcopy
-
+import numpy as np
 from mushroom.utils.table import EnsembleTable
 
 class CollectQs:
@@ -82,10 +82,13 @@ class CollectVs:
         """
 
         if self.count % self.frequency == 0 and self.collect:
-            self._vs.append(self.evaluate_policy(self.mdp.p, self.mdp.r, self.agent.get_policy()))
+            v_func = list(self.evaluate_policy(self.mdp.p, self.mdp.r, self.agent.get_policy()))
+
+            state = dataset[0][0][0]
+            self._vs.append(np.array(v_func+[state]))
             self.count = 0
         if self.collect:
-            self.count +=1
+            self.count += 1
     def get_values(self):
         """
         Returns:

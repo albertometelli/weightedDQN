@@ -136,7 +136,10 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         evaluation_frequency = 1000
         test_samples = 1000
     elif name == 'ThreeArms':
-        mdp = generate_three_arms(horizon=100, gamma=0.99)
+        horizon = 100
+        if regret_test:
+            horizon = np.inf
+        mdp = generate_three_arms(horizon=horizon, gamma=0.99)
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
@@ -317,11 +320,13 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             b = a - 1
             q_max = R / (1 - gamma)
             standard_bound = norm.ppf(1 - delta, loc=0, scale=1)
+            first_fac = np.sqrt(b + T)
+            second_fac = np.sqrt(a * np.log(S*A*T / delta))
             sigma2_factor = min(np.sqrt(b + T), np.sqrt(a * np.log(S*A*T / delta)))
 
             q_0 = q_max
             sigma1_0 = 0
-            sigma2_0 = R + gamma * q_max / (standard_bound * np.sqrt(b-1)) * sigma2_factor
+            sigma2_0 = (R + gamma * q_max) / (standard_bound * np.sqrt(b-1)) * sigma2_factor
             init_values = (q_0, sigma1_0, sigma2_0)
             learning_rate = TheoreticalParameter(value=a, b=b, decay_exp=1,
                                                  size=mdp.info.size)
@@ -449,7 +454,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             vs = collect_vs_callback.get_values()
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
-            print("Writing Value function")
+            print("Finished {} steps.".format(n_epoch * evaluation_frequency))
             np.save(out_dir + "/vs_" + algorithm, vs)
             np.save(out_dir+"/scores_online" + str(seed), train_scores)
             collect_vs_callback.off()
