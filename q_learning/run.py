@@ -25,7 +25,9 @@ sys.path.append('..')
 from policy import BootPolicy, WeightedPolicy, VPIPolicy, WeightedGaussianPolicy, UCBPolicy
 from parameter import LogarithmicDecayParameter
 from r_max.r_max import RMaxAgent
+from mbie.mbie import MBIE_EB
 from envs.knight_quest import KnightQuest
+from envs.gridworld import generate_gridworld
 from envs.chain import generate_chain
 from envs.loop import generate_loop
 from envs.river_swim import generate_river
@@ -34,6 +36,7 @@ from envs.three_arms import generate_arms as generate_three_arms
 import envs.knight_quest
 from gym.envs.registration import register
 from utils.callbacks import CollectQs, CollectVs
+
 policy_dict = {'eps-greedy': EpsGreedy,
                'boltzmann': Boltzmann,
                'weighted': WeightedPolicy,
@@ -103,12 +106,14 @@ class BetaParameter(Parameter):
 
     def _compute(self, *idx, **kwargs):
         n = np.maximum(self._n_updates[idx], 1)
-        return 1 - np.sqrt(1 - 1 / (self.b + n))
+        return 1 - np.sqrt(1 - 1 / (1 + n))
 
-def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min, lr_exp, R, log_lr, r_max_m, delayed_m, delayed_epsilon, delta, debug, double, regret_test,a,b, file_name, out_dir,collect_qs,  seed):
+def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min,
+               lr_exp, R, log_lr, r_max_m, delayed_m, delayed_epsilon, delta, debug, double,
+               regret_test, a, b, mbie_C, value_iterations, tolerance, file_name, out_dir,
+               collect_qs,  seed):
     set_global_seeds(seed)
     print('Using seed %s' % seed)
-
     # MDP
     if name == 'Taxi':
         mdp = generate_taxi('../grid.txt', horizon=5000, gamma=0.99)
@@ -120,6 +125,11 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
+    elif name == 'Gridworld':
+        mdp = generate_gridworld(horizon=100, gamma=0.99)
+        max_steps = 500000
+        evaluation_frequency = 5000
+        test_samples = 1000
     elif name == 'Loop':
         mdp = generate_loop(horizon=100, gamma=0.99)
         max_steps = 100000
@@ -130,15 +140,15 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
+        mbie_C = 0.4
     elif name == 'SixArms':
         mdp = generate_arms(horizon=100, gamma=0.99)
         max_steps = 100000
         evaluation_frequency = 1000
         test_samples = 1000
+        mbie_C = 0.8
     elif name == 'ThreeArms':
         horizon = 100
-        if regret_test:
-            horizon = np.inf
         mdp = generate_three_arms(horizon=horizon, gamma=0.99)
         max_steps = 100000
         evaluation_frequency = 1000
@@ -171,8 +181,8 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         evaluation_frequency = 1000000
         test_samples = 1000
         if name == 'ThreeArms':
-            max_steps = 50000000
-            evaluation_frequency = 500000
+            max_steps = 200000000
+            evaluation_frequency = 2000000
             test_samples = 1000
         if debug:
             max_steps = 100000
@@ -239,6 +249,19 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             s_a_threshold=r_max_m
         )
         agent = RMaxAgent(mdp.info, **algorithm_params)
+        pi = agent
+        epsilon_train = Parameter(0)
+    elif algorithm == 'mbie':
+
+
+        algorithm_params = dict(
+            rmax=R,
+            C=mbie_C,
+            value_iterations=value_iterations,
+            tolerance=tolerance
+        )
+        agent = MBIE_EB(mdp.info, **algorithm_params)
+
         pi = agent
         epsilon_train = Parameter(0)
     elif algorithm == 'delayed-ql':
@@ -317,7 +340,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             gamma = mdp.info.gamma
             T = max_steps
             S, A = mdp.info.size
-            a = 1 + 1 / (1 - gamma)
+            a = 1 / (1 - gamma) + 1
             b = a - 1
             q_max = R / (1 - gamma)
             standard_bound = norm.ppf(1 - delta, loc=0, scale=1)
@@ -396,7 +419,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         if policy == 'ucb':
             q = agent.approximator
             standard_bound = norm.ppf(1 - delta, loc=0, scale=1)
-            def quantile_func(state, quantile):
+            def quantile_func(state):
                 means = np.array(q.predict(state, idx=0))
                 if regret_test:
                     sigmas1 = np.array(q.predict(state, idx=1))
@@ -456,7 +479,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
             print("Finished {} steps.".format(n_epoch * evaluation_frequency))
-            np.save(out_dir + "/vs_" + algorithm, vs)
+            np.save(out_dir + "/vs_" + algorithm+"_"+str(seed), vs)
             np.save(out_dir+"/scores_online" + str(seed), train_scores)
             collect_vs_callback.off()
         if hasattr(pi, 'set_epsilon'):
@@ -466,12 +489,12 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         dataset = core.evaluate(n_steps=test_samples, quiet=True)
         mdp.reset()
         scores = compute_scores(dataset, mdp.info.gamma)
-        #print('Evaluation: ', scores)
+        #print('Evaluation #%d:%s ' %(n_epoch, scores))
         test_scores.append(scores)
         if regret_test:
             np.save(out_dir + "/scores_offline" + str(seed), test_scores)
     if collect_qs:
-        qs=collect_qs_callback.get_values()
+        qs= collect_qs_callback.get_values()
         if not os.path.exists(out_dir):
                             os.makedirs(out_dir)
         np.save(out_dir + '/' + file_name, qs)
@@ -483,13 +506,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     algorithms = ['ql', 'boot-ql', 'particle-ql', 'gaussian-ql','r-max', 'delayed-ql']
     update_types = ['mean', 'weighted']
-    envs = ["Chain", "Taxi", "KnightQuest", "Loop", "RiverSwim", "SixArms", "ThreeArms"]
+    envs = ["Gridworld","RiverSwim", "SixArms", "Chain", "Taxi", "KnightQuest", "Loop", "ThreeArms"]
     alg_to_policies = {
         "particle-ql": ["weighted", "ucb"],#, "vpi"
         "boot-ql": ["boot", "weighted"],
         "ql": ["boltzmann", "eps-greedy"],
         "gaussian-ql": ["weighted-gaussian","ucb"],
         "r-max": ["rmax"],
+        "mbie": ["mbie"],
         "delayed-ql": ["greedy"]
     }
     alg_to_double_vec = {
@@ -498,6 +522,7 @@ if __name__ == '__main__':
         "ql": [ True],
         "gaussian-ql": [False],
         "r-max": [False],
+        "mbie": [False],
         "delayed-ql": [False]
     }
     alg_to_update_types = {
@@ -506,9 +531,11 @@ if __name__ == '__main__':
         "ql": ["weighted"],
         "gaussian-ql": ["weighted", "mean", "optimistic"],
         "r-max": ["weighted"],
+        "mbie": ["weighted"],
         "delayed-ql": ["weighted"]
     }
     env_to_qs = {
+        "Gridworld": (-1000, 1000),
         "KnightQuest": (-20, 0),
         "Taxi": (0, 15),
         "Loop": (0, 40),
@@ -518,6 +545,7 @@ if __name__ == '__main__':
         "ThreeArms":(0,30000)
     }
     env_to_R = {
+        "Gridworld": -10,
         "KnightQuest": 1.,
         "Taxi": 7.,
         "Loop": 2.,
@@ -533,6 +561,7 @@ if __name__ == '__main__':
 
     arg_game.add_argument("--name",
                           choices=[
+                          "Gridworld",
                           "Chain",
                           "Taxi",
                           "KnightQuest",
@@ -553,6 +582,7 @@ if __name__ == '__main__':
                          'gaussian-ql',
                          'r-max',
                          'delayed-ql',
+                         'mbie',
                          ''],
                          default='',
                          help='The algorithm.')
@@ -574,6 +604,12 @@ if __name__ == '__main__':
                          help="Horizon of r-max algorithm.")
     arg_alg.add_argument("--m", type=int, default=1000,
                          help="threshold for r-max algorithm.")
+    arg_alg.add_argument("--value_iterations", type=int, default=5000,
+                         help="max_iterations of VI")
+    arg_alg.add_argument("--tolerance", type=float, default=0.01,
+                         help="tolerance of value_iteration")
+    arg_alg.add_argument("--C", type=float, default=0.3,
+                         help="parameter of MBIE")
     arg_alg.add_argument("--delayed-m", type=float, default=1.0,
                          help="m parameter of delayed-ql.")
     arg_alg.add_argument("--epsilon", type=int, default=1.0,
@@ -611,7 +647,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     n_experiment = args.n_experiments
 
-    affinity = len(os.sched_getaffinity(0))
+    affinity = min(len(os.sched_getaffinity(0)), args.n_experiments)
     if args.name != '':
         envs = [args.name]
     if args.algorithm != '':
@@ -657,11 +693,15 @@ if __name__ == '__main__':
                         out_dir = args.dir + '/' + env + '/' + alg
                         fun_args = [alg, env, args.update_mode, update_type, policy, args.n_approximators, qs[1],
                                     qs[0], args.lr_exp, R, args.log_lr, args.m, args.delayed_m, args.epsilon,
-                                    args.delta, args.debug, double, args.regret_test,args.a,args.b, file_name, out_dir]
-                        if not args.regret_test:
+                                    args.delta, args.debug, double, args.regret_test, args.a, args.b, args.C,
+                                    args.value_iterations, args.tolerance, file_name, out_dir]
+                        start = time.time()
+                        if n_experiment > 1:
                             out = Parallel(n_jobs=affinity)(delayed(experiment)(*(fun_args + [args.collect_qs if i==0 else False, args.seed+i])) for i in range(n_experiment))
                         else:
-                            out = [experiment(*(fun_args+[False,0]))]
+                            out = [experiment(*(fun_args + [False, 0]))]
+                        end = time.time()
+                        print("Executed in %f seconds!" %(end - start))
                         if not os.path.exists(out_dir):
                             os.makedirs(out_dir)
                         file_name = 'results_%s_%s_%s_%s_double=%s_%s' % (policy, '1' if args.algorithm in ['ql', 'weighted-gaussian'] else args.n_approximators,

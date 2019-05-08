@@ -3,32 +3,15 @@ import tensorflow as tf
 
 
 class SimpleNet:
-
-    @staticmethod
-    def triple_loss(particles, targets, k, margin):
-        loss = 0
-        for i in range(k):
-            d_p = tf.reduce_mean(tf.square(particles[:, i] - targets[:, i]), 0)
-            if i == 0:
-                d_n = tf.reduce_mean(tf.square(particles[:, i] - targets[:, i+1]), 0)
-            elif i == k-1:
-                d_n = tf.reduce_mean(tf.square(particles[:, i] - targets[:, i - 1]), 0)
-            else:
-                d_n = 0.5 * tf.reduce_mean(tf.square(particles[:, i] - targets[:, i - 1]), 0) + \
-                      0.5 * tf.reduce_mean(tf.square(particles[:, i] - targets[:, i - 1]), 0)
-
-            l = tf.maximum(d_p, margin + d_p - d_n)
-            loss += l
-        return loss / k
     def __init__(self, name=None, folder_name=None, load_path=None,
                  **convnet_pars):
         self._name = name
         self._folder_name = folder_name
-
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
 
         self._session = tf.Session(config=config)
+
         if load_path is not None:
             self._load(load_path, convnet_pars)
         else:
@@ -59,17 +42,13 @@ class SimpleNet:
             return np.array(
                 [self._session.run(self._q, feed_dict={self._x: s})])
 
-    def fit(self, s, a, q, mask, prob_exploration, margin):
-        #s = np.transpose(s, [0, 2, 3, 1])
-        #s = np.array([s])
+    def fit(self, s, a, q, mask):
         summaries, _ = self._session.run(
             [self._merged, self._train_step],
             feed_dict={self._x: s,
                        self._action: a.ravel().astype(np.uint8),
                        self._target_q: q,
-                       self._mask: mask,
-                       self._prob_exploration: prob_exploration,
-                       self._margin: margin}
+                       self._mask: mask}
         )
         if hasattr(self, '_train_writer'):
             self._train_writer.add_summary(summaries, self._train_count)
@@ -104,7 +83,6 @@ class SimpleNet:
 
     def _load(self, path, convnet_pars):
         self._scope_name = 'train/'
-        self._folder_name = path
         restorer = tf.train.import_meta_graph(
             path + '/' + self._scope_name[:-1] + '/' + self._scope_name[:-1] +
             '.meta')
@@ -146,17 +124,7 @@ class SimpleNet:
             self._q = list()
             self._q_acted = list()
             self.n_approximators = convnet_pars['n_approximators']
-            self.q_min = convnet_pars['q_min']
-            self.q_max = convnet_pars['q_max']
-            self.init_type = convnet_pars['init_type']
 
-            if self.init_type == 'boot':
-                kernel_initializer = lambda _: tf.glorot_uniform_initializer()
-                bias_initializer = lambda _: tf.zeros_initializer()
-            else:
-                initial_values = np.linspace(self.q_min, self.q_max, self.n_approximators)
-                kernel_initializer = lambda _: tf.glorot_uniform_initializer()
-                bias_initializer = lambda i: tf.constant_initializer(initial_values[i])
 
             for i in range(self.n_approximators):
                 with tf.variable_scope('head_' + str(i)):
@@ -175,8 +143,7 @@ class SimpleNet:
                     self._q.append(tf.layers.dense(
                         self._features2[i],
                         convnet_pars['output_shape'][0],
-                        kernel_initializer=kernel_initializer(i),
-                        bias_initializer=bias_initializer(i),
+                        kernel_initializer=tf.glorot_uniform_initializer(),
                         name='q_' + str(i)
                     ))
                     self._q_acted.append(
@@ -185,42 +152,19 @@ class SimpleNet:
                                       name='q_acted_' + str(i))
                     )
 
-            self._q_acted = tf.transpose(self._q_acted)
-
             self._target_q = tf.placeholder(
                 'float32',
                 [None, convnet_pars['n_approximators']],
                 name='target_q'
             )
-            self._margin = tf.placeholder('float32', (),
-                                                    name='margin')
-            self._q_acted_sorted = tf.contrib.framework.sort(self._q_acted, axis=1)
-            self._target_q_sorted = tf.contrib.framework.sort(self._target_q, axis=1)
-
             loss = 0.
-            if convnet_pars["loss"] == "huber_loss":
-                self.loss_fuction = tf.losses.huber_loss
-            else:
-                self.loss_fuction = tf.losses.mean_squared_error
-            k = convnet_pars['n_approximators']
-            if convnet_pars["loss"] == "triple_loss":
-
-                loss = SimpleNet.triple_loss(self._q_acted_sorted, self._target_q_sorted, k , self._margin)
-            else:
-                for i in range(convnet_pars['n_approximators']):
-
-                    loss += self.loss_fuction(
-                        self._target_q_sorted[:, i],
-                        self._q_acted_sorted[:, i]
-                    )
-                loss = loss / k
-            self._prob_exploration = tf.placeholder('float32', (),
-                                                    name='prob_exploration')
-            tf.summary.scalar(convnet_pars["loss"], loss)
+            for i in range(convnet_pars['n_approximators']):
+                loss += tf.losses.huber_loss(
+                    self._mask[:, i] * self._target_q[:, i],
+                    self._mask[:, i] * self._q_acted[i]
+                )
+            tf.summary.scalar('huber_loss', loss)
             tf.summary.scalar('average_q', tf.reduce_mean(self._q))
-            # tf.summary.scalar('average_std', tf.reduce_mean(tf.sqrt(tf.nn.moments(self._q, axes=[0])[1])))
-            tf.summary.scalar('prob_exploration', self._prob_exploration)
-            tf.summary.histogram('qs', self._q)
             self._merged = tf.summary.merge(
                 tf.get_collection(tf.GraphKeys.SUMMARIES,
                                   scope=self._scope_name)

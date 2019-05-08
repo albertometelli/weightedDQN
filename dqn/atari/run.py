@@ -111,10 +111,10 @@ def experiment():
                               'neural network.')
     arg_alg.add_argument("--max-steps", type=int, default=50000000,
                          help='Total number of learning steps.')
-    arg_alg.add_argument("--final-exploration-frame", type=int, default=1,
+    arg_alg.add_argument("--final-exploration-frame", type=int, default=1000000,
                          help='Number of steps until the exploration rate stops'
                               'decreasing.')
-    arg_alg.add_argument("--initial-exploration-rate", type=float, default=0.05,
+    arg_alg.add_argument("--initial-exploration-rate", type=float, default=1.,
                          help='Initial value of the exploration rate.')
     arg_alg.add_argument("--final-exploration-rate", type=float, default=0.05,
                          help='Final value of the exploration rate. When it'
