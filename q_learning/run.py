@@ -490,6 +490,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         mdp.reset()
         scores = compute_scores(dataset, mdp.info.gamma)
         print('Evaluation #%d:%s ' %(n_epoch, scores))
+
         test_scores.append(scores)
         if regret_test:
             np.save(out_dir + "/scores_offline" + str(seed), test_scores)

@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 
-class ConvNet:
+class SimpleNet:
     def __init__(self, name=None, folder_name=None, load_path=None,
                  **convnet_pars):
         self._name = name
@@ -36,14 +36,13 @@ class ConvNet:
                         self._w.append(w[i].assign(self._target_w[i]))
 
     def predict(self, s, features=False):
-        s = np.transpose(s, [0, 2, 3, 1])
+        #s = np.transpose(s, [0, 2, 3, 1])
         if not features:
-            return self._session.run(self.q, feed_dict={self._x: s})
+            return self._session.run(self._q, feed_dict={self._x: s})
         else:
-            return self._session.run(self._features, feed_dict={self._x: s})
+            return self._session.run(self._features_2, feed_dict={self._x: s})
 
     def fit(self, s, a, q):
-        s = np.transpose(s, [0, 2, 3, 1])
         summaries, _ = self._session.run(
             [self._merged, self._train_step],
             feed_dict={self._x: s,
@@ -109,45 +108,53 @@ class ConvNet:
                                             convnet_pars['output_shape'][0],
                                             name='action_one_hot')
 
-            with tf.variable_scope('Convolutions'):
-                hidden_1 = tf.layers.conv2d(
-                    self._x / 255., 32, 8, 4, activation=tf.nn.relu,
-                    kernel_initializer=tf.glorot_uniform_initializer(),
-                    name='hidden_1'
-                )
-                hidden_2 = tf.layers.conv2d(
-                    hidden_1, 64, 4, 2, activation=tf.nn.relu,
-                    kernel_initializer=tf.glorot_uniform_initializer(),
-                    name='hidden_2'
-                )
-                hidden_3 = tf.layers.conv2d(
-                    hidden_2, 64, 3, 1, activation=tf.nn.relu,
-                    kernel_initializer=tf.glorot_uniform_initializer(),
-                    name='hidden_3'
-                )
-                flatten = tf.reshape(hidden_3, [-1, 7 * 7 * 64], name='flatten')
+            if convnet_pars['n_states'] is not None:
+                x = tf.one_hot(tf.cast(self._x[..., 0], tf.int32),
+                               convnet_pars['n_states'])
+            else:
+                x = self._x[..., 0]
 
-            self._features = tf.layers.dense(
-                flatten, 512, activation=tf.nn.relu,
-                kernel_initializer=tf.glorot_uniform_initializer(),
-                bias_initializer=tf.glorot_uniform_initializer(),
-                name='_features'
-            )
-            self.q = tf.layers.dense(
-                self._features, convnet_pars['output_shape'][0],
-                kernel_initializer=tf.glorot_uniform_initializer(),
-                bias_initializer=tf.glorot_uniform_initializer(),
-                name='q'
+
+
+
+
+            with tf.variable_scope('Net'):
+                self._features_1 = tf.layers.dense(
+                    x, convnet_pars['n_features'],
+                    activation=tf.nn.relu,
+                    kernel_initializer=tf.glorot_uniform_initializer(),
+                    name='features_1'
+                )
+                self._features_2 = tf.layers.dense(
+                    self._features_1, convnet_pars['n_features'],
+                    activation=tf.nn.relu,
+                    kernel_initializer=tf.glorot_uniform_initializer(),
+                    name='features_2'
+                )
+                self._q = tf.layers.dense(
+                    self._features_2,
+                    convnet_pars['output_shape'][0],
+                    kernel_initializer=tf.glorot_uniform_initializer(),
+                    bias_initializer=tf.glorot_uniform_initializer(),
+                    name='q'
+                )
+                self._q_acted = tf.reduce_sum(self._q * action_one_hot,
+                                  axis=1,
+                                  name='q_acted'
+                )
+
+
+
+            self._target_q = tf.placeholder(
+                'float32',
+                [None],
+                name='target_q'
             )
 
-            self._target_q = tf.placeholder('float32', [None], name='target_q')
-            self._q_acted = tf.reduce_sum(self.q * action_one_hot,
-                                          axis=1,
-                                          name='q_acted')
 
             loss = tf.losses.huber_loss(self._target_q, self._q_acted)
             tf.summary.scalar('huber_loss', loss)
-            tf.summary.scalar('average_q', tf.reduce_mean(self.q))
+            tf.summary.scalar('average_q', tf.reduce_mean(self._q))
             self._merged = tf.summary.merge(
                 tf.get_collection(tf.GraphKeys.SUMMARIES,
                                   scope=self._scope_name)
@@ -195,8 +202,9 @@ class ConvNet:
     def _add_collection(self):
         tf.add_to_collection(self._scope_name + '_x', self._x)
         tf.add_to_collection(self._scope_name + '_action', self._action)
-        tf.add_to_collection(self._scope_name + '_features', self._features)
-        tf.add_to_collection(self._scope_name + '_q', self.q)
+        tf.add_to_collection(self._scope_name + '_features_1', self._features_1)
+        tf.add_to_collection(self._scope_name + '_features_2', self._features_2)
+        tf.add_to_collection(self._scope_name + '_q', self._q)
         tf.add_to_collection(self._scope_name + '_target_q', self._target_q)
         tf.add_to_collection(self._scope_name + '_q_acted', self._q_acted)
         tf.add_to_collection(self._scope_name + '_merged', self._merged)
@@ -205,8 +213,9 @@ class ConvNet:
     def _restore_collection(self):
         self._x = tf.get_collection(self._scope_name + '_x')[0]
         self._action = tf.get_collection(self._scope_name + '_action')[0]
-        self._features = tf.get_collection(self._scope_name + '_features')[0]
-        self.q = tf.get_collection(self._scope_name + '_q')[0]
+        self._features_1 = tf.get_collection(self._scope_name + '_features_1')[0]
+        self._features_2 = tf.get_collection(self._scope_name + '_features_2')[0]
+        self._q = tf.get_collection(self._scope_name + '_q')[0]
         self._target_q = tf.get_collection(self._scope_name + '_target_q')[0]
         self._q_acted = tf.get_collection(self._scope_name + '_q_acted')[0]
         self._merged = tf.get_collection(self._scope_name + '_merged')[0]
