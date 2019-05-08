@@ -113,15 +113,15 @@ class GaussianQLearning(Gaussian):
                 if self._update_type == 'mean':
                     best = np.random.choice(np.argwhere(mean_next_all == np.max(mean_next_all)).ravel())
                     mean_next = mean_next_all[best]
-                    sigma_next1 = sigma_next_all1[best]
+                    sigma_next = sigma_next_all[best]
 
                 elif self._update_type == 'weighted':
                     prob = GaussianQLearning._compute_prob_max(mean_next_all, sigma_next_all)
                     mean_next = np.sum(mean_next_all * prob)
                     if self.minimize_wasserstein:
-                        sigma_next1 = np.sum(prob * sigma_next_all1)
+                        sigma_next = np.sum(prob * sigma_next_all)
                     else:
-                        sigma_next1 = np.sum((sigma_next_all1 + (mean_next - mean_next_all) ** 2) * prob)
+                        sigma_next = np.sum((sigma_next_all + (mean_next - mean_next_all) ** 2) * prob)
 
                 elif self._update_type == 'optimistic':
                     bounds = sigma_next_all * self.standard_bound + mean_next_all
@@ -130,21 +130,22 @@ class GaussianQLearning(Gaussian):
                     bounds = np.clip(bounds, None, self.q_max)
                     best = np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())
                     mean_next = mean_next_all[best]
-                    sigma_next1 = sigma_next_all1[best]
+                    sigma_next = sigma_next_all[best]
+
                 else:
                     raise ValueError()
                 self.Q.model[0][state, action] = mean + self.alpha[0](state, action) * (
                         reward + self.mdp_info.gamma * mean_next - mean)
                 if self. n_approximators == 2:
                     self.Q.model[1][state, action] = sigma1 + self.alpha[1](state, action) * (
-                        self.mdp_info.gamma * sigma_next1 - sigma1)
+                        self.mdp_info.gamma * sigma_next - sigma1)
                 else:
                     self.Q.model[1][state, action] = sigma1 + self.alpha[1](state, action) * (
-                            self.mdp_info.gamma * min(sigma_next1, self.standard_bound*(self.q_max - mean))
+                            self.mdp_info.gamma * min(sigma_next, self.standard_bound*(self.q_max - mean))
                             - sigma1)
                     self.Q.model[2][state, action] = (1 - self.alpha[2](state, action)) * sigma2
 
-                if self.n_approximators == 3:
+                '''if self.n_approximators == 3:
                     means, sigmas1, sigmas2 = [x[[state]] for x in self.Q.model]
                     sigmas = sigmas1 + sigmas2
                 else:
@@ -159,7 +160,7 @@ class GaussianQLearning(Gaussian):
                     if a in actions:
                         self.policy_matrix[state, a] = 1. / n
                     else:
-                        self.policy_matrix[state, a] = 0
+                        self.policy_matrix[state, a] = 0'''
             else:
                 raise NotImplementedError()
 

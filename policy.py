@@ -214,7 +214,7 @@ class UCBPolicy(TDPolicy):
         means = self.mu(state)
         if self._evaluation:
             return np.array([np.random.choice(np.argwhere(means == np.max(means)).ravel())])
-        bounds = self.quantile_func(state, 1 - self.delta)
+        bounds = self.quantile_func(state)
         #qs = means + bounds
         bounds = np.clip(bounds, None, self.q_max)
         a = np.array([np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())])
