@@ -1,14 +1,20 @@
 import argparse
 import os
 import sys
-
 from joblib import Parallel, delayed
 import numpy as np
 from mushroom.environments import *
 from mushroom.environments.generators.taxi import generate_taxi
-
 sys.path.append('..')
 sys.path.append('../..')
+from particle_dqn import ParticleDQN, ParticleDoubleDQN
+from bootstrapped_dqn import BootstrappedDoubleDQN, BootstrappedDQN
+from gaussian_dqn import GaussianDQN
+from dqn import DoubleDQN, DQN
+from mushroom.core.core import Core
+from mushroom.utils.dataset import compute_scores
+from mushroom.utils.parameters import LinearDecayParameter, Parameter
+from policy import BootPolicy, WeightedPolicy, WeightedGaussianPolicy, EpsGreedy
 from envs.gridworld import GridWorld
 import time
 import tensorflow as tf
@@ -26,172 +32,17 @@ def print_epoch(epoch):
     print('Epoch: ', epoch)
     print('----------------------------------------------------------------')
 
+def get_stats(dataset):
+    score = compute_scores(dataset)
+    print('min_reward: %f, max_reward: %f, mean_reward: %f,'
+          ' games_completed: %d' % score)
 
-def experiment():
+    return score
+
+def experiment(args, agent_algorithm):
     np.random.seed()
 
-    # Argument parser
-    parser = argparse.ArgumentParser()
 
-    arg_mdp = parser.add_argument_group('Environment')
-    arg_mdp.add_argument("--horizon", type=int, default=100)
-    arg_mdp.add_argument("--gamma", type=float, default=0.99)
-    arg_mdp.add_argument("--name", type=str, default='Gridworld')
-    arg_mdp.add_argument("--fast_zone", type=float, default=1.0)
-    arg_mdp.add_argument("--slow_zone", type=float, default=10)
-    arg_mdp.add_argument("--goal", type=float, default=0.)
-    arg_mdp.add_argument('--grid_size', type=int, default=5)
-    arg_mdp.add_argument('--rand_initial', action='store_true')
-
-    arg_mem = parser.add_argument_group('Replay Memory')
-    arg_mem.add_argument("--initial-replay-size", type=int, default=100,
-                         help='Initial size of the replay memory.')
-    arg_mem.add_argument("--max-replay-size", type=int, default=5000,
-                         help='Max size of the replay memory.')
-
-    arg_net = parser.add_argument_group('Deep Q-Network')
-    arg_net.add_argument("--n-features", type=int, default=10)
-    arg_net.add_argument("--optimizer",
-                         choices=['adadelta',
-                                  'adam',
-                                  'rmsprop',
-                                  'rmspropcentered'],
-                         default='adam',
-                         help='Name of the optimizer to use to learn.')
-    arg_net.add_argument("--learning-rate", type=float, default=.0001,
-                         help='Learning rate value of the optimizer. Only used'
-                              'in rmspropcentered')
-    arg_net.add_argument("--decay", type=float, default=.95,
-                         help='Discount factor for the history coming from the'
-                              'gradient momentum in rmspropcentered')
-    arg_net.add_argument("--epsilon", type=float, default=.01,
-                         help='Epsilon term used in rmspropcentered')
-
-    arg_alg = parser.add_argument_group('Algorithm')
-    arg_alg.add_argument("--alg",
-                         choices=['boot',
-                                  'particle',
-                                  'gaussian',
-                                  'dqn'],
-                         default='particle',
-                         help='Algorithm to use')
-    arg_alg.add_argument("--weighted", action='store_true')
-    arg_alg.add_argument("--boot", action='store_true',
-                         help="Flag to use BootstrappedDQN.")
-    arg_alg.add_argument("--gaussian", action='store_true',
-                         help="Flag to use GaussianDQN.")
-    arg_alg.add_argument("--double", action='store_true',
-                         help="Flag to use the DoubleDQN version of the algorithm.")
-    arg_alg.add_argument("--multiple_nets", action='store_true',
-                         help="")
-    arg_alg.add_argument("--weighted-update", action='store_true')
-    arg_alg.add_argument("--n-approximators", type=int, default=10,
-                         help="Number of approximators used in the ensemble for"
-                              "Averaged DQN.")
-    arg_alg.add_argument("--loss",
-                             choices=['squared_loss',
-                                      'huber_loss',
-                                      'triple_loss'
-                                     ],
-                         default='huber_loss',
-                         help="Loss functions used in the approximator")
-    arg_alg.add_argument("--q-max", type=float, default=100,
-                         help='Upper bound for initializing the heads of the network')
-    arg_alg.add_argument("--q-min", type=float, default=0,
-                         help='Lower bound for initializing the heads of the network')
-    arg_alg.add_argument("--sigma-weight", type=float, default=1.0,
-                         help='Used in gaussian learning to explore more')
-    arg_alg.add_argument("--init-type", choices=['boot', 'linspace'], default='linspace',
-                         help='Type of initialization for the network')
-    arg_alg.add_argument("--batch-size", type=int, default=32,
-                         help='Batch size for each fit of the network.')
-    arg_alg.add_argument("--target-update-frequency", type=int, default=100,
-                         help='Number of collected samples before each update'
-                              'of the target network.')
-    arg_alg.add_argument("--evaluation-frequency", type=int, default=1000,
-                         help='Number of learning step before each evaluation.'
-                              'This number represents an epoch.')
-    arg_alg.add_argument("--train-frequency", type=int, default=1,
-                         help='Number of learning steps before each fit of the'
-                              'neural network.')
-    arg_alg.add_argument("--max-steps", type=int, default=50000,
-                         help='Total number of learning steps.')
-    arg_alg.add_argument("--final-exploration-frame", type=int, default=10000,
-                         help='Number of steps until the exploration rate stops'
-                              'decreasing.')
-    arg_alg.add_argument("--initial-exploration-rate", type=float, default=1.,
-                         help='Initial value of the exploration rate.')
-    arg_alg.add_argument("--final-exploration-rate", type=float, default=0.,
-                         help='Final value of the exploration rate. When it'
-                              'reaches this values, it stays constant.')
-    arg_alg.add_argument("--test-exploration-rate", type=float, default=0.,
-                         help='Exploration rate used during evaluation.')
-    arg_alg.add_argument("--test-samples", type=int, default=1000,
-                         help='Number of steps for each evaluation.')
-    arg_alg.add_argument("--p-mask", type=float, default=1.)
-
-    arg_utils = parser.add_argument_group('Utils')
-    arg_utils.add_argument('--load-path', type=str,
-                           help='Path of the model to be loaded.')
-    arg_utils.add_argument('--save', action='store_true',
-                           help='Flag specifying whether to save the model.')
-    arg_utils.add_argument('--evaluation', action='store_true',
-                           help='Flag specifying whether the model loaded will be evaluated.')
-    arg_utils.add_argument('--render', action='store_true',
-                           help='Flag specifying whether to render the game.')
-    arg_utils.add_argument('--quiet', action='store_true',
-                           help='Flag specifying whether to hide the progress'
-                                'bar.')
-    arg_utils.add_argument('--debug', action='store_true',
-                           help='Flag specifying whether the script has to be'
-                                'run in debug mode.')
-    arg_utils.add_argument("--device", type=int, default=0,
-                          help='Index of the GPU.')
-
-    args = parser.parse_args()
-
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
-
-    from particle_dqn import ParticleDQN, ParticleDoubleDQN
-    from bootstrapped_dqn import BootstrappedDoubleDQN, BootstrappedDQN
-    from gaussian_dqn import GaussianDQN
-    from dqn import DoubleDQN, DQN
-    from mushroom.core.core import Core
-    from mushroom.environments import Atari
-
-    from mushroom.utils.dataset import compute_scores
-    from mushroom.utils.parameters import LinearDecayParameter, Parameter
-
-    from policy import BootPolicy, WeightedPolicy, WeightedGaussianPolicy, EpsGreedy
-    if args.alg == 'boot':
-        from boot_net import SimpleNet
-        if args.double:
-            agent_algorithm = BootstrappedDoubleDQN
-        else:
-            agent_algorithm = BootstrappedDQN
-    elif args.alg == 'gaussian':
-        from gaussian_net import GaussianNet as SimpleNet
-        agent_algorithm = GaussianDQN
-    elif args.alg == 'dqn':
-        from dqn_net import SimpleNet
-        if args.double:
-            agent_algorithm = DoubleDQN
-        else:
-            agent_algorithm = DQN
-    else:
-
-        from net import SimpleNet
-        if args.double:
-            agent_algorithm = ParticleDoubleDQN
-        else:
-            agent_algorithm = ParticleDQN
-    def get_stats(dataset):
-        score = compute_scores(dataset)
-        print('min_reward: %f, max_reward: %f, mean_reward: %f,'
-              ' games_completed: %d' % score)
-
-        return score
 
     scores = list()
     #add timestamp to results
@@ -462,15 +313,157 @@ def experiment():
 
 
 if __name__ == '__main__':
-    policy = ['weighted']
-    name = 'Gridworld'
+    # Argument parser
+    parser = argparse.ArgumentParser()
 
-    n_experiments = 1
+    arg_mdp = parser.add_argument_group('Environment')
+    arg_mdp.add_argument("--horizon", type=int, default=100)
+    arg_mdp.add_argument("--gamma", type=float, default=0.99)
+    arg_mdp.add_argument("--name", type=str, default='Gridworld')
+    arg_mdp.add_argument("--fast_zone", type=float, default=1.0)
+    arg_mdp.add_argument("--slow_zone", type=float, default=10)
+    arg_mdp.add_argument("--goal", type=float, default=0.)
+    arg_mdp.add_argument('--grid_size', type=int, default=5)
+    arg_mdp.add_argument('--rand_initial', action='store_true')
 
-    for p in policy:
-        folder_name = './logs/' + p + '/' + name
-        out = Parallel(n_jobs=-1)(
-            delayed(experiment)() for _ in range(n_experiments))
-        tf.reset_default_graph()
+    arg_mem = parser.add_argument_group('Replay Memory')
+    arg_mem.add_argument("--initial-replay-size", type=int, default=100,
+                         help='Initial size of the replay memory.')
+    arg_mem.add_argument("--max-replay-size", type=int, default=5000,
+                         help='Max size of the replay memory.')
 
-        np.save(folder_name + '/scores.npy', out)
+    arg_net = parser.add_argument_group('Deep Q-Network')
+    arg_net.add_argument("--n-features", type=int, default=10)
+    arg_net.add_argument("--optimizer",
+                         choices=['adadelta',
+                                  'adam',
+                                  'rmsprop',
+                                  'rmspropcentered'],
+                         default='adam',
+                         help='Name of the optimizer to use to learn.')
+    arg_net.add_argument("--learning-rate", type=float, default=.0001,
+                         help='Learning rate value of the optimizer. Only used'
+                              'in rmspropcentered')
+    arg_net.add_argument("--decay", type=float, default=.95,
+                         help='Discount factor for the history coming from the'
+                              'gradient momentum in rmspropcentered')
+    arg_net.add_argument("--epsilon", type=float, default=.01,
+                         help='Epsilon term used in rmspropcentered')
+
+    arg_alg = parser.add_argument_group('Algorithm')
+    arg_alg.add_argument("--alg",
+                         choices=['boot',
+                                  'particle',
+                                  'gaussian',
+                                  'dqn'],
+                         default='particle',
+                         help='Algorithm to use')
+    arg_alg.add_argument("--weighted", action='store_true')
+    arg_alg.add_argument("--boot", action='store_true',
+                         help="Flag to use BootstrappedDQN.")
+    arg_alg.add_argument("--gaussian", action='store_true',
+                         help="Flag to use GaussianDQN.")
+    arg_alg.add_argument("--double", action='store_true',
+                         help="Flag to use the DoubleDQN version of the algorithm.")
+    arg_alg.add_argument("--multiple_nets", action='store_true',
+                         help="")
+    arg_alg.add_argument("--weighted-update", action='store_true')
+    arg_alg.add_argument("--n-approximators", type=int, default=10,
+                         help="Number of approximators used in the ensemble for"
+                              "Averaged DQN.")
+    arg_alg.add_argument("--loss",
+                         choices=['squared_loss',
+                                  'huber_loss',
+                                  'triple_loss'
+                                  ],
+                         default='huber_loss',
+                         help="Loss functions used in the approximator")
+    arg_alg.add_argument("--q-max", type=float, default=100,
+                         help='Upper bound for initializing the heads of the network')
+    arg_alg.add_argument("--q-min", type=float, default=0,
+                         help='Lower bound for initializing the heads of the network')
+    arg_alg.add_argument("--sigma-weight", type=float, default=1.0,
+                         help='Used in gaussian learning to explore more')
+    arg_alg.add_argument("--init-type", choices=['boot', 'linspace'], default='linspace',
+                         help='Type of initialization for the network')
+    arg_alg.add_argument("--batch-size", type=int, default=32,
+                         help='Batch size for each fit of the network.')
+    arg_alg.add_argument("--target-update-frequency", type=int, default=100,
+                         help='Number of collected samples before each update'
+                              'of the target network.')
+    arg_alg.add_argument("--evaluation-frequency", type=int, default=1000,
+                         help='Number of learning step before each evaluation.'
+                              'This number represents an epoch.')
+    arg_alg.add_argument("--train-frequency", type=int, default=1,
+                         help='Number of learning steps before each fit of the'
+                              'neural network.')
+    arg_alg.add_argument("--max-steps", type=int, default=50000,
+                         help='Total number of learning steps.')
+    arg_alg.add_argument("--final-exploration-frame", type=int, default=10000,
+                         help='Number of steps until the exploration rate stops'
+                              'decreasing.')
+    arg_alg.add_argument("--initial-exploration-rate", type=float, default=1.,
+                         help='Initial value of the exploration rate.')
+    arg_alg.add_argument("--final-exploration-rate", type=float, default=0.,
+                         help='Final value of the exploration rate. When it'
+                              'reaches this values, it stays constant.')
+    arg_alg.add_argument("--test-exploration-rate", type=float, default=0.,
+                         help='Exploration rate used during evaluation.')
+    arg_alg.add_argument("--test-samples", type=int, default=1000,
+                         help='Number of steps for each evaluation.')
+    arg_alg.add_argument("--p-mask", type=float, default=1.)
+
+    arg_utils = parser.add_argument_group('Utils')
+    arg_utils.add_argument('--load-path', type=str,
+                           help='Path of the model to be loaded.')
+    arg_utils.add_argument('--save', action='store_true',
+                           help='Flag specifying whether to save the model.')
+    arg_utils.add_argument('--evaluation', action='store_true',
+                           help='Flag specifying whether the model loaded will be evaluated.')
+    arg_utils.add_argument('--render', action='store_true',
+                           help='Flag specifying whether to render the game.')
+    arg_utils.add_argument('--quiet', action='store_true',
+                           help='Flag specifying whether to hide the progress'
+                                'bar.')
+    arg_utils.add_argument('--debug', action='store_true',
+                           help='Flag specifying whether the script has to be'
+                                'run in debug mode.')
+    arg_utils.add_argument("--device", type=int, default=0,
+                           help='Index of the GPU.')
+    arg_utils.add_argument("--n_experiments", type=int, default=1,
+                           help='Number of experiments to run')
+
+    args = parser.parse_args()
+
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
+
+
+    n_experiments = args.n_experiments
+    if args.alg == 'boot':
+        from boot_net import SimpleNet
+        if args.double:
+            agent_algorithm = BootstrappedDoubleDQN
+        else:
+            agent_algorithm = BootstrappedDQN
+    elif args.alg == 'gaussian':
+        from gaussian_net import GaussianNet as SimpleNet
+        agent_algorithm = GaussianDQN
+    elif args.alg == 'dqn':
+        from dqn_net import SimpleNet
+        if args.double:
+            agent_algorithm = DoubleDQN
+        else:
+            agent_algorithm = DQN
+    else:
+
+        from net import SimpleNet
+        if args.double:
+            agent_algorithm = ParticleDoubleDQN
+        else:
+            agent_algorithm = ParticleDQN
+    out = Parallel(n_jobs=-1)(
+        delayed(experiment)(args, agent_algorithm) for _ in range(n_experiments))
+    tf.reset_default_graph()
+
+    #np.save(folder_name + '/scores.npy', out)
