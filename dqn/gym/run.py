@@ -227,7 +227,7 @@ def experiment(args, agent_algorithm):
             approximator_params['load_path']=args.load_path
             approximator_params['folder_name']=args.load_path
             folder_name=args.load_path
-            p = "scores.npy"
+            p = "scores_"+str(ts)+".npy"
             scores=np.load(p).tolist()
             max_steps=max_steps-evaluation_frequency*len(scores)
         approximator = SimpleNet
@@ -281,7 +281,7 @@ def experiment(args, agent_algorithm):
                                      quiet=args.quiet)
         scores.append(get_stats(dataset))
 
-        np.save(folder_name + '/scores.npy', scores)
+        np.save(folder_name + '/scores_' + str(ts) + '.npy', scores)
         for n_epoch in range(1, max_steps // evaluation_frequency + 1):
             print_epoch(n_epoch)
             print('- Learning:')
@@ -307,7 +307,7 @@ def experiment(args, agent_algorithm):
                                          render=args.render,
                                          quiet=args.quiet)
             scores.append(get_stats(dataset))
-            np.save(folder_name + '/scores.npy', scores)
+            np.save(folder_name + '/scores' + str(ts) + '.npy', scores)
 
     return scores
 
