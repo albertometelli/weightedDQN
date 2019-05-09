@@ -307,7 +307,7 @@ def experiment(args, agent_algorithm):
                                          render=args.render,
                                          quiet=args.quiet)
             scores.append(get_stats(dataset))
-            np.save(folder_name + '/scores' + str(ts) + '.npy', scores)
+            np.save(folder_name + '/scores_' + str(ts) + '.npy', scores)
 
     return scores
 
