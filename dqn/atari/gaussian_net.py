@@ -103,6 +103,7 @@ class GaussianNet:
         self._restore_collection(convnet_pars)
 
     def _build(self, convnet_pars):
+
         with tf.variable_scope(None, default_name=self._name):
             self._scope_name = tf.get_default_graph().get_name_scope() + '/'
 
@@ -151,20 +152,9 @@ class GaussianNet:
 
 
             self.sigma_weight = convnet_pars['sigma_weight']
-            #self.n_approximators = convnet_pars['n_approximators']
             self.q_min = convnet_pars['q_min']
             self.q_max = convnet_pars['q_max']
-            #self.init_type = convnet_pars['init_type']
-
-            '''if self.init_type == 'boot':
-                kernel_initializer = lambda _: tf.glorot_uniform_initializer()
-                bias_initializer = lambda _: tf.zeros_initializer()
-            else:
-                initial_values = np.linspace(self.q_min, self.q_max, self.n_approximators)
-                kernel_initializer = lambda _: tf.glorot_uniform_initializer()
-                bias_initializer = lambda i: tf.constant_initializer(initial_values[i])'''
-            mean = (self.q_min + self.q_max) /2.
-
+            mean = (self.q_min + self.q_max) / 2.
             logsigma = np.log((self.q_max - self.q_min) / np.sqrt(12))
 
             with tf.variable_scope('q_value'):

@@ -117,7 +117,7 @@ class SimpleNet:
                 x = tf.one_hot(tf.cast(self._x[..., 0], tf.int32),
                                convnet_pars['n_states'])
             else:
-                x = self._x[..., 0]
+                x = self._x[...]
 
             self._features = list()
             self._features2 = list()

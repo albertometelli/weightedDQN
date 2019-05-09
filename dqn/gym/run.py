@@ -341,7 +341,7 @@ if __name__ == '__main__':
                                   'rmspropcentered'],
                          default='adam',
                          help='Name of the optimizer to use to learn.')
-    arg_net.add_argument("--learning-rate", type=float, default=.0001,
+    arg_net.add_argument("--learning-rate", type=float, default=.001,
                          help='Learning rate value of the optimizer. Only used'
                               'in rmspropcentered')
     arg_net.add_argument("--decay", type=float, default=.95,
@@ -399,7 +399,7 @@ if __name__ == '__main__':
                               'neural network.')
     arg_alg.add_argument("--max-steps", type=int, default=50000,
                          help='Total number of learning steps.')
-    arg_alg.add_argument("--final-exploration-frame", type=int, default=10000,
+    arg_alg.add_argument("--final-exploration-frame", type=int, default=30000,
                          help='Number of steps until the exploration rate stops'
                               'decreasing.')
     arg_alg.add_argument("--initial-exploration-rate", type=float, default=1.,
@@ -464,6 +464,7 @@ if __name__ == '__main__':
             agent_algorithm = ParticleDQN
     out = Parallel(n_jobs=-1)(
         delayed(experiment)(args, agent_algorithm) for _ in range(n_experiments))
+    #out = [experiment(args,agent_algorithm)]
     tf.reset_default_graph()
 
     #np.save(folder_name + '/scores.npy', out)
