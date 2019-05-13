@@ -69,6 +69,7 @@ def experiment():
                          default='particle',
                          help='Algorithm to use')
     arg_alg.add_argument("--weighted", action='store_true')
+    arg_alg.add_argument("--ucb", action='store_true')
     arg_alg.add_argument("--boot", action='store_true',
                          help="Flag to use BootstrappedDQN.")
     arg_alg.add_argument("--gaussian", action='store_true',
@@ -91,6 +92,8 @@ def experiment():
                                      ],
                          default='huber_loss',
                          help="Loss functions used in the approximator")
+    arg_alg.add_argument("--delta", type=float, default=0.1,
+                         help='Parameter of ucb policy')
     arg_alg.add_argument("--q-max", type=float, default=100,
                          help='Upper bound for initializing the heads of the network')
     arg_alg.add_argument("--q-min", type=float, default=0,
@@ -165,7 +168,7 @@ def experiment():
     from mushroom.utils.dataset import compute_scores
     from mushroom.utils.parameters import LinearDecayParameter, Parameter
 
-    from policy import BootPolicy, WeightedPolicy, WeightedGaussianPolicy, EpsGreedy
+    from policy import BootPolicy, WeightedPolicy, WeightedGaussianPolicy, EpsGreedy, UCBPolicy
     if args.alg == 'boot':
         from boot_net import ConvNet
         if args.double:
@@ -241,16 +244,23 @@ def experiment():
             algorithm_params['p_mask'] = args.p_mask
             pi = BootPolicy(args.n_approximators, epsilon=epsilon_test)
         elif args.alg == 'gaussian':
-            pi = WeightedGaussianPolicy(epsilon=epsilon_test)
+            if args.ucb:
+                pi = UCBPolicy(delta=args.delta)
+            else:
+                pi = WeightedGaussianPolicy(epsilon=epsilon_test)
         elif args.alg == 'dqn':
             pi = EpsGreedy(epsilon=epsilon_test)
         elif args.alg =='particle':
-            pi = WeightedPolicy(args.n_approximators, epsilon=epsilon_test)
+            if args.ucb:
+                pi = WeightedPolicy(args.n_approximators, epsilon=epsilon_test)
+            else:
+                pi = UCBPolicy(delta=args.delta)
         else:
             raise ValueError("Algorithm uknown")
 
         if args.alg in ['gaussian', 'particle']:
             algorithm_params['update_type']=args.update_type
+            algorithm_params['delta'] = args.delta
             approximator_params['q_min']= args.q_min
             approximator_params['q_max']= args.q_max
             approximator_params['loss']= args.loss
@@ -362,6 +372,7 @@ def experiment():
             algorithm_params['p_mask']=args.p_mask
         elif args.alg in ['particle', 'gaussian']:
             algorithm_params['update_type'] = args.update_type
+            algorithm_params['delta'] = args.delta
             approximator_params['q_min'] = args.q_min
             approximator_params['q_max'] = args.q_max
             approximator_params['loss'] = args.loss
@@ -374,6 +385,30 @@ def experiment():
         agent = agent_algorithm(approximator, pi, mdp.info,
                           approximator_params=approximator_params,
                           **algorithm_params)
+        if args.ucb:
+            q = agent.approximator
+            if args.alg == 'particle':
+                def mu(state):
+                    q_list = q.predict(state).squeeze()
+                    qs = np.array(q_list)
+                    return qs.mean(axis=0)
+
+                quantiles = [i * 1. / (args.n_approximators - 1) for i in range(args.n_approximators)]
+                for p in range(args.n_approximators):
+                    if quantiles[p] >= 1 - args.delta:
+                        delta_index = p
+                        break
+
+                def quantile_func(state):
+                    q_list = q.predict(state).squeeze()
+                    qs = np.array(q_list)
+                    return qs[delta_index,:]
+                pi.set_mu(mu)
+                pi.set_quantile_func(quantile_func)
+
+            if args.alg == 'gaussian':
+                raise ValueError("Not implemented")
+
         # Algorithm
         core = Core(agent, mdp)
 

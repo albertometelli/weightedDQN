@@ -17,7 +17,7 @@ class SimpleNet:
 
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
-
+        self.convnet_pars = convnet_pars
         self._session = tf.Session(config=config)
 
         if load_path is not None:
@@ -130,49 +130,66 @@ class SimpleNet:
             logsigma = np.log((self.q_max - self.q_min) / np.sqrt(12))
 
             with tf.variable_scope('Q_Net'):
-                self._features_q_1 = tf.layers.dense(
-                    x, convnet_pars['n_features'],
-                    activation=tf.nn.relu,
-                    kernel_initializer=tf.glorot_uniform_initializer(),
-                    name='features_q_1'
-                )
-                self._features_q_2 = tf.layers.dense(
-                    self._features_q_1, convnet_pars['n_features'],
-                    activation=tf.nn.relu,
-                    kernel_initializer=tf.glorot_uniform_initializer(),
-                    name='features_q_2'
-                )
-                self._q = tf.layers.dense(
-                    self._features_q_2,
-                    convnet_pars['output_shape'][0],
-                    kernel_initializer=tf.glorot_uniform_initializer(),
-                    bias_initializer=tf.constant_initializer(mean),
-                    name='q'
-                )
+                if convnet_pars['net_type'] == 'features':
+                    self._features_q_1 = tf.layers.dense(
+                        x, convnet_pars['n_features'],
+                        activation=tf.nn.relu,
+                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        name='features_q_1'
+                    )
+                    self._features_q_2 = tf.layers.dense(
+                        self._features_q_1, convnet_pars['n_features'],
+                        activation=tf.nn.relu,
+                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        name='features_q_2'
+                    )
+                    self._q = tf.layers.dense(
+                        self._features_q_2,
+                        convnet_pars['output_shape'][0],
+                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        bias_initializer=tf.constant_initializer(mean),
+                        name='q'
+                    )
+                else:
+                    self._q = tf.layers.dense(
+                        x,
+                        convnet_pars['output_shape'][0],
+                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        bias_initializer=tf.constant_initializer(mean),
+                        name='q'
+                    )
                 self._q_acted = tf.reduce_sum(self._q * action_one_hot,
                                   axis=1,
                                   name='q_acted')
 
             with tf.variable_scope('Sigma_Net'):
-                self._features_sigma__1 = tf.layers.dense(
-                    x, convnet_pars['n_features'],
-                    activation=tf.nn.relu,
-                    kernel_initializer=tf.glorot_uniform_initializer(),
-                    name='features_sigma_1'
-                )
-                self._features_sigma_2 = tf.layers.dense(
-                    self._features_sigma_1, convnet_pars['n_features'],
-                    activation=tf.nn.relu,
-                    kernel_initializer=tf.glorot_uniform_initializer(),
-                    name='features_sigma_2'
-                )
-                self._log_sigma = tf.layers.dense(
-                    self._features_sigma_2,
-                    convnet_pars['output_shape'][0],
-                    kernel_initializer=tf.glorot_uniform_initializer(),
-                    bias_initializer=tf.constant_initializer(logsigma),
-                    name='log_sigma'
-                )
+                if convnet_pars['net_type'] == 'features':
+                    self._features_sigma__1 = tf.layers.dense(
+                        x, convnet_pars['n_features'],
+                        activation=tf.nn.relu,
+                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        name='features_sigma_1'
+                    )
+                    self._features_sigma_2 = tf.layers.dense(
+                        self._features_sigma_1, convnet_pars['n_features'],
+                        activation=tf.nn.relu,
+                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        name='features_sigma_2'
+                    )
+                    self._log_sigma = tf.layers.dense(
+                        self._features_sigma_2,
+                        convnet_pars['output_shape'][0],
+                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        bias_initializer=tf.constant_initializer(logsigma),
+                        name='log_sigma'
+                    )
+                else:
+                    self._log_sigma = tf.layers.dense(
+                        x,
+                        convnet_pars['output_shape'][0],
+                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        bias_initializer=tf.constant_initializer(logsigma),
+                        name='log_sigma')
 
                 self._sigma = tf.exp(self._log_sigma, name='sigma')
                 self._sigma_acted = tf.reduce_sum(self._sigma * action_one_hot,
@@ -268,10 +285,11 @@ class SimpleNet:
     def _add_collection(self):
         tf.add_to_collection(self._scope_name + '_x', self._x)
         tf.add_to_collection(self._scope_name + '_action', self._action)
-        tf.add_to_collection(self._scope_name + '_features_q_1', self._features_q_1)
-        tf.add_to_collection(self._scope_name + '_features_q_2', self._features_q_2)
-        tf.add_to_collection(self._scope_name + '_features_sigma_1', self._features_sigma_1)
-        tf.add_to_collection(self._scope_name + '_features_sigma_2', self._features_sigma_2)
+        if self.convnet_pars['net_type'] == 'features':
+            tf.add_to_collection(self._scope_name + '_features_q_1', self._features_q_1)
+            tf.add_to_collection(self._scope_name + '_features_q_2', self._features_q_2)
+            tf.add_to_collection(self._scope_name + '_features_sigma_1', self._features_sigma_1)
+            tf.add_to_collection(self._scope_name + '_features_sigma_2', self._features_sigma_2)
         tf.add_to_collection(self._scope_name + '_q', self._q)
         tf.add_to_collection(self._scope_name + '_log_sigma', self._log_sigma)
         tf.add_to_collection(self._scope_name + '_sigma', self._sigma)
@@ -285,10 +303,11 @@ class SimpleNet:
     def _restore_collection(self):
         self._x = tf.get_collection(self._scope_name + '_x')[0]
         self._action = tf.get_collection(self._scope_name + '_action')[0]
-        self._features_q_1 = tf.get_collection(self._scope_name + '_features_q_1')[0]
-        self._features_q_2 = tf.get_collection(self._scope_name + '_features_q_2')[0]
-        self._features_sigma_1 = tf.get_collection(self._scope_name + '_features_sigma_1')[0]
-        self._features_sigma_2 = tf.get_collection(self._scope_name + '_features_sigma_2')[0]
+        if self.convnet_pars['net_type'] == 'features':
+            self._features_q_1 = tf.get_collection(self._scope_name + '_features_q_1')[0]
+            self._features_q_2 = tf.get_collection(self._scope_name + '_features_q_2')[0]
+            self._features_sigma_1 = tf.get_collection(self._scope_name + '_features_sigma_1')[0]
+            self._features_sigma_2 = tf.get_collection(self._scope_name + '_features_sigma_2')[0]
         self._q = tf.get_collection(self._scope_name + '_q')[0]
         self._log_sigma = tf.get_collection(self._scope_name + '_log_sigma')[0]
         self._sigma = tf.get_collection(self._scope_name + '_sigma')[0]

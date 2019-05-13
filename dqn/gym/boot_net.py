@@ -9,7 +9,7 @@ class SimpleNet:
         self._folder_name = folder_name
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
-
+        self.convnet_pars = convnet_pars
         self._session = tf.Session(config=config)
 
         if load_path is not None:
@@ -128,29 +128,41 @@ class SimpleNet:
 
             for i in range(self.n_approximators):
                 with tf.variable_scope('head_' + str(i)):
-                    self._features.append(tf.layers.dense(
-                        x, convnet_pars['n_features'],
-                        activation=tf.nn.relu,
-                        kernel_initializer=tf.glorot_uniform_initializer(),
-                        name='features_' + str(i)
-                    ))
-                    self._features2.append(tf.layers.dense(
-                        self._features[i], convnet_pars['n_features'],
-                        activation=tf.nn.relu,
-                        kernel_initializer=tf.glorot_uniform_initializer(),
-                        name='features2_' + str(i)
-                    ))
-                    self._q.append(tf.layers.dense(
-                        self._features2[i],
-                        convnet_pars['output_shape'][0],
-                        kernel_initializer=tf.glorot_uniform_initializer(),
-                        name='q_' + str(i)
-                    ))
-                    self._q_acted.append(
-                        tf.reduce_sum(self._q[i] * action_one_hot,
-                                      axis=1,
-                                      name='q_acted_' + str(i))
-                    )
+                    if convnet_pars["net_type"] == 'features':
+                        self._features.append(tf.layers.dense(
+                            x, convnet_pars['n_features'],
+                            activation=tf.nn.relu,
+                            kernel_initializer=tf.glorot_uniform_initializer(),
+                            name='features_' + str(i)
+                        ))
+                        self._features2.append(tf.layers.dense(
+                            self._features[i], convnet_pars['n_features'],
+                            activation=tf.nn.relu,
+                            kernel_initializer=tf.glorot_uniform_initializer(),
+                            name='features2_' + str(i)
+                        ))
+                        self._q.append(tf.layers.dense(
+                            self._features2[i],
+                            convnet_pars['output_shape'][0],
+                            kernel_initializer=tf.glorot_uniform_initializer(),
+                            name='q_' + str(i)
+                        ))
+                        self._q_acted.append(
+                            tf.reduce_sum(self._q[i] * action_one_hot,
+                                          axis=1,
+                                          name='q_acted_' + str(i))
+                        )
+                    else:
+                        self._q.append(tf.layers.dense(
+                            x,
+                            convnet_pars['output_shape'][0],
+                            kernel_initializer=tf.glorot_uniform_initializer(),
+                            name='q_' + str(i)
+                        ))
+                        self._q_acted.append(
+                            tf.reduce_sum(self._q[i] * action_one_hot,
+                                          axis=1,
+                                          name='q_acted_' + str(i)))
 
             self._target_q = tf.placeholder(
                 'float32',
@@ -213,11 +225,12 @@ class SimpleNet:
         tf.add_to_collection(self._scope_name + '_x', self._x)
         tf.add_to_collection(self._scope_name + '_action', self._action)
 
-        for i in range(len(self._features)):
-            tf.add_to_collection(self._scope_name + '_features_' + str(i),
-                                 self._features[i])
-            tf.add_to_collection(self._scope_name + '_features2_' + str(i),
-                                 self._features2[i])
+        for i in range(self.convnet_pars['n_approximators']):
+            if self.convnet_pars['net_type'] == 'features':
+                tf.add_to_collection(self._scope_name + '_features_' + str(i),
+                                     self._features[i])
+                tf.add_to_collection(self._scope_name + '_features2_' + str(i),
+                                     self._features2[i])
             tf.add_to_collection(self._scope_name + '_q_' + str(i), self._q[i])
             tf.add_to_collection(self._scope_name + '_q_acted_' + str(i),
                                  self._q_acted[i])
@@ -235,16 +248,17 @@ class SimpleNet:
         q = list()
         q_acted = list()
         for i in range(convnet_pars['n_approximators']):
-            features.append(tf.get_collection(
-                self._scope_name + '_features_' + str(i))[0])
-            features2.append(tf.get_collection(
-                self._scope_name + '_features2_' + str(i))[0])
+            if self.convnet_pars['net_type'] == 'features':
+                features.append(tf.get_collection(
+                    self._scope_name + '_features_' + str(i))[0])
+                features2.append(tf.get_collection(
+                    self._scope_name + '_features2_' + str(i))[0])
             q.append(tf.get_collection(self._scope_name + '_q_' + str(i))[0])
             q_acted.append(tf.get_collection(
                 self._scope_name + '_q_acted_' + str(i))[0])
-
-        self._features = features
-        self._features2 = features2
+        if self.convnet_pars['net_type'] == 'features':
+            self._features = features
+            self._features2 = features2
         self._q = q
         self._q_acted = q_acted
         self._target_q = tf.get_collection(self._scope_name + '_target_q')[0]

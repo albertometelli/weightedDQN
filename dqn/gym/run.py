@@ -84,6 +84,7 @@ def experiment(args, agent_algorithm):
             input_preprocessor=input_preprocessor,
             name='test',
             load_path=args.load_path,
+            net_type=args.net_type,
             optimizer={'name': args.optimizer,
                        'lr': args.learning_rate,
                        'decay': args.decay,
@@ -231,6 +232,7 @@ def experiment(args, agent_algorithm):
             n_approximators=args.n_approximators,
             input_preprocessor=input_preprocessor,
             folder_name=folder_name,
+            net_type=args.net_type,
             sigma_weight=args.sigma_weight,
             optimizer={'name': args.optimizer,
                        'lr': args.learning_rate,
@@ -380,6 +382,11 @@ if __name__ == '__main__':
                                   'rmspropcentered'],
                          default='adam',
                          help='Name of the optimizer to use to learn.')
+    arg_net.add_argument("--net-type",
+                         choices=['features',
+                                  'linear'],
+                         default='features',
+                         help='Type of net')
     arg_net.add_argument("--learning-rate", type=float, default=.001,
                          help='Learning rate value of the optimizer. Only used'
                               'in rmspropcentered')
