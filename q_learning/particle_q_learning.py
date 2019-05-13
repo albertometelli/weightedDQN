@@ -13,6 +13,11 @@ class Particle(TD):
         self._update_type = update_type
         self.delta = delta
         self.quantiles = [i * 1. / (n_approximators - 1) for i in range(n_approximators)]
+        for p in range(n_approximators):
+            if self.quantiles[p] >= 1 - delta:
+                self.delta_index = p
+                break
+
         self.Q = EnsembleTable(self._n_approximators, mdp_info.size)
         if init_values is None:
             init_values = np.linspace(q_min, q_max, n_approximators)
@@ -104,16 +109,12 @@ class ParticleQLearning(Particle):
                     bounds = np.zeros(self.mdp_info.size[-1])
                     for a in range(self.mdp_info.size[-1]):
                         particles = q_next_all[:, a]
-                        for p in range(self._n_approximators):
-                            if self.quantiles[p] == 1 - self.delta:
+                        bounds[a] = q_next_mean[a] + particles[self.delta_index]
+                        '''for p in range(self._n_approximators):
+                            if self.quantiles[p] >= 1 - self.delta:
                                 bounds[a] = q_next_mean[a] + particles[p]
-                                break
-                            elif self.quantiles[p] > 1 - self.delta:
-                                '''out[a] = ((q - quantiles[p-1]) * particles[p-1] + \
-                                         (quantiles[p] - q + 1) * particles[p]) * 
-                                         (particles[p] - particles[p-1])'''
-                                bounds[a] = q_next_mean[a] + particles[p]
-                                break
+                                break'''
+
 
                     next_index = np.array([np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())])
                     q_next = q_next_all[:, next_index]

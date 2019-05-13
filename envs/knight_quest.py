@@ -217,7 +217,7 @@ class KnightQuest(DiscreteEnv):
 
         self.fromExtendedToCompactIdxs = fromExtendedToCompactIdxs
         self.fromCompactToExtended = fromCompactToExtended
-        self.absorbing_states=absorbing_states
+        self.absorbing_states = absorbing_states
         state_actions = []
         for s in range(real_nS):
             for a in range(nA):

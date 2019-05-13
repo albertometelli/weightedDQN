@@ -13,7 +13,7 @@ class ParticleDQN(Agent):
                  target_update_frequency, initial_replay_size,
                  max_replay_size, fit_params=None, approximator_params=None,
                  n_approximators=1, clip_reward=True,
-                 weighted_update=False):
+                 weighted_update=False, update_type='weighted', delta=0.1, q_max=100):
         self._fit_params = dict() if fit_params is None else fit_params
 
         self._batch_size = batch_size
@@ -21,6 +21,13 @@ class ParticleDQN(Agent):
         self._clip_reward = clip_reward
         self._target_update_frequency = target_update_frequency
         self.weighted_update = weighted_update
+        self.update_type = update_type
+        self.q_max = q_max
+        quantiles = [i * 1. / (n_approximators - 1) for i in range(n_approximators)]
+        for p in range(n_approximators):
+            if quantiles[p] >= 1 - delta:
+                self.delta_index = p
+                break
 
         self._replay_memory = ReplayMemory(initial_replay_size, max_replay_size)
 
@@ -50,6 +57,13 @@ class ParticleDQN(Agent):
 
     def fit(self, dataset):
         
+
+        '''absorbing = []
+        for i in range(len(dataset)):
+            absorbing.append(dataset[i][4])
+        if (np.array(absorbing)== 1).any():
+            print("Found absorbing state:", np.sum(np.array(absorbing)== 1))
+            input()'''
         mask = np.ones((len(dataset), self._n_approximators))
         self._replay_memory.add(dataset, mask)
         if self._replay_memory.initialized:
@@ -63,13 +77,9 @@ class ParticleDQN(Agent):
 
             q = reward.reshape(self._batch_size,
                                1) + self.mdp_info.gamma * q_next
-            diff = 0
+
             margin = 0.05
-            for i in range(q.shape[0]):
-                for j in range(q.shape[1] - 1):
-                    if q[i, j + 1] - q[i, j] > diff:
-                        diff = q[i, j + 1] - q[i, j]
-            margin = diff
+
             self.approximator.fit(state, action, q, mask=mask,
                                   prob_exploration=prob_explore,
                                   margin=margin,
@@ -103,6 +113,8 @@ class ParticleDQN(Agent):
         q = np.array(self.target_approximator.predict(next_state))[0]
         for i in range(q.shape[1]):
             if absorbing[i]:
+                print(absorbing)
+                input()
                 q[:, i, :] *= 0
 
         max_q = np.zeros((q.shape[1], q.shape[0]))
@@ -116,15 +128,27 @@ class ParticleDQN(Agent):
             probs.append(prob)
             parts.append(particles)
             prob_explore[i] = (1 - np.max(prob))
-        if not self.weighted_update:
+        if self.update_type == 'mean':
             best_actions = np.argmax(np.mean(q, axis=0), axis=1)
             for i in range(q.shape[1]):
                 max_q[i, :] = q[:, i, best_actions[i]]
-        else:
-            for i in range(q.shape[1]): #for each batch 
+        elif self.update_type == 'weighted':
+            for i in range(q.shape[1]): #for each batch
                 particles = parts[i]
                 prob = probs[i]
                 max_q[i, :] = np.dot(particles, prob)
+        elif self.update_type == 'optimistic':
+            for i in range(q.shape[1]):
+                particles = parts[i]
+                means = np.mean(particles, axis=0)
+                bounds = means + particles[self.delta_index, :]
+                bounds = np.clip(bounds, -self.q_max, self.q_max)
+                next_index = np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())
+                max_q[i, :] = particles[:, next_index]
+
+        else:
+            raise ValueError("Update type not supported")
+
         return max_q, np.mean(prob_explore)
 
 

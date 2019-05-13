@@ -12,13 +12,15 @@ class GaussianDQN(Agent):
     def __init__(self, approximator, policy, mdp_info, batch_size,
                  target_update_frequency, initial_replay_size,
                  max_replay_size, fit_params=None, approximator_params=None, clip_reward=True,
-                 weighted_update=False):
+                 update_type='weighted', delta=0.1):
         self._fit_params = dict() if fit_params is None else fit_params
 
         self._batch_size = batch_size
         self._clip_reward = clip_reward
         self._target_update_frequency = target_update_frequency
-        self.weighted_update = weighted_update
+        self.update_type = update_type
+        self.delta = delta
+        self.standard_bound = norm.ppf(1 - self.delta, loc=0, scale=1)
 
         self._replay_memory = ReplayMemory(initial_replay_size, max_replay_size)
 
@@ -138,18 +140,22 @@ class GaussianDQN(Agent):
             prob = GaussianDQN._compute_prob_max(means, sigmas)
             probs.append(prob)
             prob_explore[i] = 1. - np.max(prob)'''
-        if not self.weighted_update:
+        if self.update_type == 'mean':
             best_actions = np.argmax(q, axis=1)
             for i in range(q.shape[0]):
                 max_q[i] = q[i, best_actions[i]]
                 max_sigma[i] = sigma[i, best_actions[i]]
-        else:
+        elif self.update_type == 'weighted':
             for i in range(q.shape[0]):  # for each batch
                 means = q[i, :]
                 sigmas = sigma[i, :]
                 prob = probs[i]
                 max_q[i] = np.sum(means * prob)
                 max_sigma[i] = np.sum(sigmas * prob)
+        elif self.update_type == 'optimistic':
+            raise ValueError("Optimistic update not implemented")
+        else:
+            raise ValueError("Update type not implemented")
 
         return max_q, max_sigma, -1 #np.mean(prob_explore)
 

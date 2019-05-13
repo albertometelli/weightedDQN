@@ -220,7 +220,9 @@ class SimpleNet:
             tf.summary.scalar('average_q', tf.reduce_mean(self._q))
             # tf.summary.scalar('average_std', tf.reduce_mean(tf.sqrt(tf.nn.moments(self._q, axes=[0])[1])))
             tf.summary.scalar('prob_exploration', self._prob_exploration)
-            tf.summary.histogram('qs', self._q)
+            tf.summary.scalar('std_acted', tf.reduce_mean(tf.nn.moments(self._q_acted,axes=1)[1]))
+            tf.summary.histogram('qs', tf.reduce_mean(self._q_acted,axis=0))
+
             self._merged = tf.summary.merge(
                 tf.get_collection(tf.GraphKeys.SUMMARIES,
                                   scope=self._scope_name)

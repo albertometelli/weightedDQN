@@ -14,7 +14,7 @@ from dqn import DoubleDQN, DQN
 from mushroom.core.core import Core
 from mushroom.utils.dataset import compute_scores
 from mushroom.utils.parameters import LinearDecayParameter, Parameter
-from policy import BootPolicy, WeightedPolicy, WeightedGaussianPolicy, EpsGreedy
+from policy import BootPolicy, WeightedPolicy, WeightedGaussianPolicy, EpsGreedy, UCBPolicy
 from envs.gridworld import GridWorld
 import time
 import tensorflow as tf
@@ -104,16 +104,24 @@ def experiment(args, agent_algorithm):
             algorithm_params['p_mask'] = args.p_mask
             pi = BootPolicy(args.n_approximators, epsilon=epsilon_test)
         elif args.alg == 'gaussian':
-            pi = WeightedGaussianPolicy(epsilon=epsilon_test)
+            if args.ucb:
+                pi = WeightedGaussianPolicy(epsilon=epsilon_test)
+            else:
+                pi = WeightedGaussianPolicy(epsilon=epsilon_test)
         elif args.alg == 'dqn':
             pi = EpsGreedy(epsilon=epsilon_test)
         elif args.alg =='particle':
-            pi = WeightedPolicy(args.n_approximators, epsilon=epsilon_test)
+            if args.ucb:
+                pi = WeightedPolicy(args.n_approximators, epsilon=epsilon_test)
+            else:
+                pi = WeightedPolicy(args.n_approximators, epsilon=epsilon_test)
+
         else:
             raise ValueError("Algorithm uknown")
 
         if args.alg in ['gaussian', 'particle']:
-            algorithm_params['weighted_update']=args.weighted_update
+            algorithm_params['update_type']=args.update_type
+            algorithm_params['delta'] = args.delta
             approximator_params['q_min']= args.q_min
             approximator_params['q_max']= args.q_max
             approximator_params['loss']= args.loss
@@ -184,7 +192,7 @@ def experiment(args, agent_algorithm):
         epsilon_random = Parameter(value=1.)
 
         policy_name = 'weighted'
-        update_rule = 'weighted_update' if args.weighted_update else 'max_mean_update'
+        update_rule = args.update_type + "_update"
         if args.alg == 'boot':
             pi = BootPolicy(args.n_approximators, epsilon = epsilon)
             policy_name = 'boot'
@@ -194,9 +202,16 @@ def experiment(args, agent_algorithm):
             policy_name = 'eps_greedy'
             update_rule = 'td'
         elif args.alg == 'particle':
-            pi = WeightedPolicy(args.n_approximators)
+            if args.ucb:
+
+                pi = UCBPolicy(delta=args.delta)
+            else:
+                pi = WeightedPolicy(args.n_approximators)
         elif args.alg == 'gaussian':
-            pi = WeightedGaussianPolicy()
+            if args.ucb:
+                pi = WeightedGaussianPolicy()
+            else:
+                pi = WeightedGaussianPolicy()
         else:
             raise ValueError("Algorithm unknown")
         # Summary folder
@@ -243,11 +258,12 @@ def experiment(args, agent_algorithm):
         if args.alg == 'boot':
             algorithm_params['p_mask']=args.p_mask
         elif args.alg in ['particle', 'gaussian']:
-            algorithm_params['weighted_update']=args.weighted_update
-            approximator_params['q_min']=args.q_min
-            approximator_params['q_max']=args.q_max
-            approximator_params['loss']=args.loss
-            approximator_params['init_type']=args.init_type
+            algorithm_params['update_type'] = args.update_type
+            algorithm_params['delta'] = args.delta
+            approximator_params['q_min'] = args.q_min
+            approximator_params['q_max'] = args.q_max
+            approximator_params['loss'] = args.loss
+            approximator_params['init_type'] = args.init_type
 
         if args.alg in ['boot', 'particle']:
             approximator_params['n_approximators'] = args.n_approximators
@@ -257,6 +273,29 @@ def experiment(args, agent_algorithm):
                           approximator_params=approximator_params,
                           **algorithm_params)
 
+        if args.ucb:
+            q = agent.approximator
+            if args.alg == 'particle':
+                def mu(state):
+                    q_list = q.predict(state).squeeze()
+                    qs = np.array(q_list)
+                    return qs.mean(axis=0)
+
+                quantiles = [i * 1. / (args.n_approximators - 1) for i in range(args.n_approximators)]
+                for p in range(args.n_approximators):
+                    if quantiles[p] >= 1 - args.delta:
+                        delta_index = p
+                        break
+
+                def quantile_func(state):
+                    q_list = q.predict(state).squeeze()
+                    qs = np.array(q_list)
+                    return qs[delta_index,:]
+                pi.set_mu(mu)
+                pi.set_quantile_func(quantile_func)
+
+            if args.alg == 'gaussian':
+                raise ValueError("Not implemented")
         # Algorithm
         core = Core(agent, mdp)
         core_test = Core(agent, mdp)
@@ -359,6 +398,7 @@ if __name__ == '__main__':
                          default='particle',
                          help='Algorithm to use')
     arg_alg.add_argument("--weighted", action='store_true')
+    arg_alg.add_argument("--ucb", action='store_true')
     arg_alg.add_argument("--boot", action='store_true',
                          help="Flag to use BootstrappedDQN.")
     arg_alg.add_argument("--gaussian", action='store_true',
@@ -367,7 +407,10 @@ if __name__ == '__main__':
                          help="Flag to use the DoubleDQN version of the algorithm.")
     arg_alg.add_argument("--multiple_nets", action='store_true',
                          help="")
-    arg_alg.add_argument("--weighted-update", action='store_true')
+    arg_alg.add_argument("--update-type",
+                         choices=['mean', 'weighted', 'optimistic'],
+                         default='mean',
+                         help='Kind of update to perform (only WQL algorithms).')
     arg_alg.add_argument("--n-approximators", type=int, default=10,
                          help="Number of approximators used in the ensemble for"
                               "Averaged DQN.")
@@ -378,6 +421,8 @@ if __name__ == '__main__':
                                   ],
                          default='huber_loss',
                          help="Loss functions used in the approximator")
+    arg_alg.add_argument("--delta", type=float, default=0.1,
+                         help='Parameter of ucb policy')
     arg_alg.add_argument("--q-max", type=float, default=100,
                          help='Upper bound for initializing the heads of the network')
     arg_alg.add_argument("--q-min", type=float, default=0,
@@ -462,9 +507,12 @@ if __name__ == '__main__':
             agent_algorithm = ParticleDoubleDQN
         else:
             agent_algorithm = ParticleDQN
-    out = Parallel(n_jobs=-1)(
+    if args.debug or n_experiments == 1:
+        out = [experiment(args, agent_algorithm)]
+    else:
+        out = Parallel(n_jobs=-1)(
         delayed(experiment)(args, agent_algorithm) for _ in range(n_experiments))
-    #out = [experiment(args,agent_algorithm)]
+
     tf.reset_default_graph()
 
     #np.save(folder_name + '/scores.npy', out)

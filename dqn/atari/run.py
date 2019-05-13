@@ -75,7 +75,10 @@ def experiment():
                          help="Flag to use GaussianDQN.")
     arg_alg.add_argument("--double", action='store_true',
                          help="Flag to use the DoubleDQN version of the algorithm.")
-    arg_alg.add_argument("--weighted-update", action='store_true')
+    arg_alg.add_argument("--update-type",
+                         choices=['mean', 'weighted', 'optimistic'],
+                         default='mean',
+                         help='Kind of update to perform (only WQL algorithms).')
     arg_alg.add_argument("--multiple-nets", action='store_true',
                          help="if to use separate nets for every environment")
     arg_alg.add_argument("--n-approximators", type=int, default=10,
@@ -247,7 +250,7 @@ def experiment():
             raise ValueError("Algorithm uknown")
 
         if args.alg in ['gaussian', 'particle']:
-            algorithm_params['weighted_update']=args.weighted_update
+            algorithm_params['update_type']=args.update_type
             approximator_params['q_min']= args.q_min
             approximator_params['q_max']= args.q_max
             approximator_params['loss']= args.loss
@@ -303,7 +306,7 @@ def experiment():
         epsilon_random = Parameter(value=1.)
 
         policy_name = 'weighted'
-        update_rule = 'weighted_update' if args.weighted_update else 'max_mean_update'
+        update_rule = args.update_type + "_update"
         if args.alg == 'boot':
             pi = BootPolicy(args.n_approximators, epsilon = epsilon)
             policy_name = 'boot'
@@ -358,11 +361,11 @@ def experiment():
         if args.alg == 'boot':
             algorithm_params['p_mask']=args.p_mask
         elif args.alg in ['particle', 'gaussian']:
-            algorithm_params['weighted_update']=args.weighted_update
-            approximator_params['q_min']=args.q_min
-            approximator_params['q_max']=args.q_max
-            approximator_params['loss']=args.loss
-            approximator_params['init_type']=args.init_type
+            algorithm_params['update_type'] = args.update_type
+            approximator_params['q_min'] = args.q_min
+            approximator_params['q_max'] = args.q_max
+            approximator_params['loss'] = args.loss
+            approximator_params['init_type'] = args.init_type
 
         if args.alg in ['boot', 'particle']:
             approximator_params['n_approximators'] = args.n_approximators
