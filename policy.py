@@ -63,6 +63,9 @@ class EpsGreedy(TDPolicy):
 
         self._epsilon = epsilon
 
+    def set_eval(self, eval):
+        self._evaluation = eval
+
     def update(self, *idx):
         """
         Update the value of the epsilon parameter at the provided index (e.g. in
