@@ -192,7 +192,7 @@ def experiment(args, agent_algorithm):
         epsilon_test = Parameter(value=args.test_exploration_rate)
         epsilon_random = Parameter(value=1.)
 
-        policy_name = 'weighted'
+        policy_name = 'weighted' 
         update_rule = args.update_type + "_update"
         if args.alg == 'boot':
             pi = BootPolicy(args.n_approximators, epsilon = epsilon)
@@ -204,12 +204,13 @@ def experiment(args, agent_algorithm):
             update_rule = 'td'
         elif args.alg == 'particle':
             if args.ucb:
-
+                policy_name = 'ucb'
                 pi = UCBPolicy(delta=args.delta)
             else:
                 pi = WeightedPolicy(args.n_approximators)
         elif args.alg == 'gaussian':
             if args.ucb:
+                policy_name = 'ucb'
                 pi = WeightedGaussianPolicy()
             else:
                 pi = WeightedGaussianPolicy()
