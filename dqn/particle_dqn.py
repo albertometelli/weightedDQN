@@ -113,8 +113,7 @@ class ParticleDQN(Agent):
         q = np.array(self.target_approximator.predict(next_state))[0]
         for i in range(q.shape[1]):
             if absorbing[i]:
-                print(absorbing)
-                input()
+
                 q[:, i, :] *= 0
 
         max_q = np.zeros((q.shape[1], q.shape[0]))
