@@ -252,9 +252,9 @@ def experiment():
             pi = EpsGreedy(epsilon=epsilon_test)
         elif args.alg =='particle':
             if args.ucb:
-                pi = WeightedPolicy(args.n_approximators, epsilon=epsilon_test)
+                pi = UCBPolicy(args.n_approximators, epsilon=epsilon_test)
             else:
-                pi = UCBPolicy(delta=args.delta)
+                pi = WeightedPolicy(delta=args.delta)
         else:
             raise ValueError("Algorithm uknown")
 
@@ -326,9 +326,15 @@ def experiment():
             policy_name = 'eps_greedy'
             update_rule = 'td'
         elif args.alg == 'particle':
-            pi = WeightedPolicy(args.n_approximators)
+            if args.ucb:
+                pi = UCBPolicy(delta=args.delta)
+            else:
+                pi = WeightedPolicy(args.n_approximators)
         elif args.alg == 'gaussian':
-            pi = WeightedGaussianPolicy()
+            if args.ucb:
+                pi = UCBPolicy(delta=args.delta)
+            else:
+                pi = WeightedGaussianPolicy()
         else:
             raise ValueError("Algorithm unknown")
         # Summary folder
