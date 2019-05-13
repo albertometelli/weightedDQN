@@ -106,7 +106,7 @@ class BetaParameter(Parameter):
 
     def _compute(self, *idx, **kwargs):
         n = np.maximum(self._n_updates[idx], 1)
-        return 1 - np.sqrt(1 - 1 / (1 + n))
+        return 1 - np.sqrt(1 - 1 / (2 + n))
 
 def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min,
                lr_exp, R, log_lr, r_max_m, delayed_m, delayed_epsilon, delta, debug, double,
@@ -342,6 +342,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             S, A = mdp.info.size
             a = 1 / (1 - gamma) + 1
             b = a - 1
+            c = 2
             q_max = R / (1 - gamma)
             standard_bound = norm.ppf(1 - delta, loc=0, scale=1)
             first_fac = np.sqrt(b + T)
@@ -350,7 +351,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 
             q_0 = q_max
             sigma1_0 = 0
-            sigma2_0 = (R + gamma * q_max) / (standard_bound * np.sqrt(b-1)) * sigma2_factor
+            sigma2_0 = (R + gamma * q_max) / (standard_bound * np.sqrt(c-1)) * sigma2_factor
             init_values = (q_0, sigma1_0, sigma2_0)
             learning_rate = TheoreticalParameter(value=a, b=b, decay_exp=1,
                                                  size=mdp.info.size)
