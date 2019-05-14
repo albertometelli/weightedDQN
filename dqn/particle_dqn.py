@@ -13,7 +13,8 @@ class ParticleDQN(Agent):
                  target_update_frequency, initial_replay_size,
                  max_replay_size, fit_params=None, approximator_params=None,
                  n_approximators=1, clip_reward=True,
-                 weighted_update=False, update_type='weighted', delta=0.1, q_max=100):
+                 weighted_update=False, update_type='weighted', delta=0.1,
+                 q_max=100, store_prob=False):
         self._fit_params = dict() if fit_params is None else fit_params
 
         self._batch_size = batch_size
@@ -23,6 +24,7 @@ class ParticleDQN(Agent):
         self.weighted_update = weighted_update
         self.update_type = update_type
         self.q_max = q_max
+        self.store_prob = store_prob
         quantiles = [i * 1. / (n_approximators - 1) for i in range(n_approximators)]
         for p in range(n_approximators):
             if quantiles[p] >= 1 - delta:
@@ -117,28 +119,23 @@ class ParticleDQN(Agent):
                 q[:, i, :] *= 0
 
         max_q = np.zeros((q.shape[1], q.shape[0]))
-        probs = []
-        parts = []
         prob_explore = np.zeros(q.shape[1])
-        for i in range(q.shape[1]):  # for each batch
-            particles = q[:, i, :]
-            particles = np.sort(particles, axis=0)
-            prob = ParticleDQN._compute_prob_max(particles)
-            probs.append(prob)
-            parts.append(particles)
-            prob_explore[i] = (1 - np.max(prob))
+
         if self.update_type == 'mean':
             best_actions = np.argmax(np.mean(q, axis=0), axis=1)
             for i in range(q.shape[1]):
                 max_q[i, :] = q[:, i, best_actions[i]]
         elif self.update_type == 'weighted':
             for i in range(q.shape[1]): #for each batch
-                particles = parts[i]
-                prob = probs[i]
+                particles = q[:, i, :]
+                particles = np.sort(particles, axis=0)
+                prob = ParticleDQN._compute_prob_max(particles)
                 max_q[i, :] = np.dot(particles, prob)
+                if self.store_prob:
+                    prob_explore[i] = (1 - np.max(prob))
         elif self.update_type == 'optimistic':
             for i in range(q.shape[1]):
-                particles = parts[i]
+                particles = q[:, i, :]
                 means = np.mean(particles, axis=0)
                 bounds = means + particles[self.delta_index, :]
                 bounds = np.clip(bounds, -self.q_max, self.q_max)
@@ -148,8 +145,9 @@ class ParticleDQN(Agent):
         else:
             raise ValueError("Update type not supported")
 
-        return max_q, np.mean(prob_explore)
-
+        if self.store_prob:
+            return max_q, np.mean(prob_explore)
+        return max_q, 0
 
     def draw_action(self, state):
         action = super(ParticleDQN, self).draw_action(np.array(state))

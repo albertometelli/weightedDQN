@@ -12,7 +12,7 @@ class GaussianDQN(Agent):
     def __init__(self, approximator, policy, mdp_info, batch_size,
                  target_update_frequency, initial_replay_size,
                  max_replay_size, fit_params=None, approximator_params=None, clip_reward=True,
-                 update_type='weighted', delta=0.1):
+                 update_type='weighted', delta=0.1, store_prob=False):
         self._fit_params = dict() if fit_params is None else fit_params
 
         self._batch_size = batch_size
@@ -21,7 +21,7 @@ class GaussianDQN(Agent):
         self.update_type = update_type
         self.delta = delta
         self.standard_bound = norm.ppf(1 - self.delta, loc=0, scale=1)
-
+        self.store_prob = store_prob
         self._replay_memory = ReplayMemory(initial_replay_size, max_replay_size)
 
         self._n_updates = 0
