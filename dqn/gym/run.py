@@ -123,6 +123,7 @@ def experiment(args, agent_algorithm):
         if args.alg in ['gaussian', 'particle']:
             algorithm_params['update_type']=args.update_type
             algorithm_params['delta'] = args.delta
+            algorithm_params['store_prob'] = args.store_prob
             approximator_params['q_min']= args.q_min
             approximator_params['q_max']= args.q_max
             approximator_params['loss']= args.loss
@@ -263,6 +264,7 @@ def experiment(args, agent_algorithm):
         elif args.alg in ['particle', 'gaussian']:
             algorithm_params['update_type'] = args.update_type
             algorithm_params['delta'] = args.delta
+            algorithm_params['store_prob'] = args.store_prob
             approximator_params['q_min'] = args.q_min
             approximator_params['q_max'] = args.q_max
             approximator_params['loss'] = args.loss
@@ -471,6 +473,8 @@ if __name__ == '__main__':
                            help='Path of the model to be loaded.')
     arg_utils.add_argument('--save', action='store_true',
                            help='Flag specifying whether to save the model.')
+    arg_utils.add_argument('--store_prob', action='store_true',
+                           help='Flag specifying whether to save probability of exploration.')
     arg_utils.add_argument('--evaluation', action='store_true',
                            help='Flag specifying whether the model loaded will be evaluated.')
     arg_utils.add_argument('--render', action='store_true',
