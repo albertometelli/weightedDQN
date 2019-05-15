@@ -141,11 +141,12 @@ class ParticleDQN(Agent):
         elif self.update_type == 'optimistic':
             for i in range(q.shape[1]):
                 particles = q[:, i, :]
+                particles = np.sort(particles, axis=0)
                 means = np.mean(particles, axis=0)
                 bounds = means + particles[self.delta_index, :]
                 bounds = np.clip(bounds, -self.q_max, self.q_max)
                 if self.store_prob:
-                    particles = np.sort(particles, axis=0)
+
                     prob = ParticleDQN._compute_prob_max(particles)
                     prob_explore[i] = (1 - np.max(prob))
                 next_index = np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())
