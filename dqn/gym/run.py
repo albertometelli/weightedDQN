@@ -371,7 +371,7 @@ if __name__ == '__main__':
     arg_mdp.add_argument("--slow_zone", type=float, default=10)
     arg_mdp.add_argument("--goal", type=float, default=0.)
     arg_mdp.add_argument('--grid_size', type=int, default=5)
-    arg_mdp.add_argument('--rand_initial', action='store_store_true')
+    arg_mdp.add_argument('--rand_initial', action='store_true')
 
     arg_mem = parser.add_argument_group('Replay Memory')
     arg_mem.add_argument("--initial-replay-size", type=int, default=100,
