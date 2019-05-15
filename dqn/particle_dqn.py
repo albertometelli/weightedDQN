@@ -125,6 +125,11 @@ class ParticleDQN(Agent):
             best_actions = np.argmax(np.mean(q, axis=0), axis=1)
             for i in range(q.shape[1]):
                 max_q[i, :] = q[:, i, best_actions[i]]
+                if self.store_prob:
+                    particles = q[:, i, :]
+                    particles = np.sort(particles, axis=0)
+                    prob = ParticleDQN._compute_prob_max(particles)
+                    prob_explore[i] = (1 - np.max(prob))
         elif self.update_type == 'weighted':
             for i in range(q.shape[1]): #for each batch
                 particles = q[:, i, :]
@@ -139,6 +144,10 @@ class ParticleDQN(Agent):
                 means = np.mean(particles, axis=0)
                 bounds = means + particles[self.delta_index, :]
                 bounds = np.clip(bounds, -self.q_max, self.q_max)
+                if self.store_prob:
+                    particles = np.sort(particles, axis=0)
+                    prob = ParticleDQN._compute_prob_max(particles)
+                    prob_explore[i] = (1 - np.max(prob))
                 next_index = np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())
                 max_q[i, :] = particles[:, next_index]
 

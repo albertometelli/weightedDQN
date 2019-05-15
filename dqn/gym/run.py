@@ -296,6 +296,7 @@ def experiment(args, agent_algorithm):
                     q_list = q.predict(state).squeeze()
                     qs = np.array(q_list)
                     return qs[delta_index,:]
+                print("Setting up ucb policy")
                 pi.set_mu(mu)
                 pi.set_quantile_func(quantile_func)
 
