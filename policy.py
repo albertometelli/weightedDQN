@@ -87,6 +87,10 @@ class BootPolicy(TDPolicy):
         self._epsilon = epsilon
         self._evaluation = False
         self._idx = None
+        self.plotter = None
+
+    def set_plotter(self,plotter):
+        self.plotter = plotter
 
     def draw_action(self, state):
         if not np.random.uniform() < self._epsilon(state):
@@ -102,7 +106,8 @@ class BootPolicy(TDPolicy):
                                           return_counts=True)
                 max_a = np.array([max_as[np.random.choice(
                     np.argwhere(count == np.max(count)).ravel())]])
-
+                if self.plotter is not None:
+                    self.plotter(np.array(q_list))
                 return max_a
             else:
                 q = self._approximator.predict(state, idx=self._idx)
@@ -110,7 +115,8 @@ class BootPolicy(TDPolicy):
                 max_a = np.argwhere(q == np.max(q)).ravel()
                 if len(max_a) > 1:
                     max_a = np.array([np.random.choice(max_a)])
-
+                if self.plotter is not None:
+                    self.plotter(np.array(self._approximator.predict(state)))
                 return max_a
         else:
             return np.array([np.random.choice(self._approximator.n_actions)])
@@ -138,6 +144,10 @@ class WeightedPolicy(TDPolicy):
         self._n_approximators = n_approximators
         self._epsilon = epsilon
         self._evaluation = False
+        self.plotter = None
+
+    def set_plotter(self,plotter):
+        self.plotter = plotter
 
     @staticmethod
     def _compute_prob_max(q_list):
@@ -163,6 +173,8 @@ class WeightedPolicy(TDPolicy):
                 input()'''
                 means = np.mean(q_list, axis=0)
                 max_a = np.array([np.random.choice(np.argwhere(means == np.max(means)).ravel())])
+                if self.plotters is not None:
+                    self.plotter(np.array(q_list))
                 return max_a
             else:
                 if isinstance(self._approximator.model, list):
@@ -180,6 +192,8 @@ class WeightedPolicy(TDPolicy):
                     samples[a] = qs[idx, a]
 
                 max_a = np.array([np.random.choice(np.argwhere(samples == np.max(samples)).ravel())])
+                if self.plotter is not None:
+                    self.plotter(qs)
                 return max_a
         else:
             return np.array([np.random.choice(self._approximator.n_actions)])
@@ -212,15 +226,23 @@ class UCBPolicy(TDPolicy):
         self.delta = delta
         self. q_max = q_max
         self._evaluation = False
+        self.plotter = None
+
+    def set_plotter(self,plotter):
+        self.plotter = plotter
 
     def draw_action(self, state):
         means = self.mu(state)
         if self._evaluation:
+            if self.plotter is not None:
+                self.plotter(np.array(self._approximator.predict(state)))
             return np.array([np.random.choice(np.argwhere(means == np.max(means)).ravel())])
         bounds = self.quantile_func(state)
         #qs = means + bounds
         bounds = np.clip(bounds, -self.q_max, self.q_max)
         a = np.array([np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())])
+        if self.plotter is not None:
+            self.plotter(np.array(self._approximator.predict(state)))
         return a
 
     def set_epsilon(self, epsilon):
@@ -235,8 +257,6 @@ class UCBPolicy(TDPolicy):
     def update_epsilon(self, state):
         pass
 
-    def set_q(self, q):
-        pass
 
     def set_quantile_func(self, quantile_func):
         self.quantile_func = quantile_func

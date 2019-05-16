@@ -227,7 +227,7 @@ class SimpleNet:
                         self._target_q_sorted[:, i],
                         self._q_acted_sorted[:, i]
                     )
-                loss = loss / k
+
             self._prob_exploration = tf.placeholder('float32', (),
                                                     name='prob_exploration')
             tf.summary.scalar(convnet_pars["loss"], loss)

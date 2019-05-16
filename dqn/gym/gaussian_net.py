@@ -164,14 +164,14 @@ class SimpleNet:
 
             with tf.variable_scope('Sigma_Net'):
                 if convnet_pars['net_type'] == 'features':
-                    self._features_sigma__1 = tf.layers.dense(
-                        x, convnet_pars['n_features'],
+                    self._features_sigma_1 = tf.layers.dense(
+                        x, 24,
                         activation=tf.nn.relu,
                         kernel_initializer=tf.glorot_uniform_initializer(),
                         name='features_sigma_1'
                     )
                     self._features_sigma_2 = tf.layers.dense(
-                        self._features_sigma_1, convnet_pars['n_features'],
+                        self._features_sigma_1, 48,
                         activation=tf.nn.relu,
                         kernel_initializer=tf.glorot_uniform_initializer(),
                         name='features_sigma_2'
