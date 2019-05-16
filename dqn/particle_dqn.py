@@ -120,9 +120,7 @@ class ParticleDQN(Agent):
 
         max_q = np.zeros((q.shape[1], q.shape[0]))
         prob_explore = np.zeros(q.shape[1])
-        print(q.shape)
-        print(q)
-        input()
+        
         if self.update_type == 'mean':
             best_actions = np.argmax(np.mean(q, axis=0), axis=1)
             for i in range(q.shape[1]):
