@@ -2,7 +2,7 @@ import argparse
 import os
 import sys
 from joblib import Parallel, delayed
-import matplotlib.pyplot as plt
+
 import numpy as np
 import scipy.stats as stats
 from scipy.stats import norm
@@ -324,6 +324,7 @@ def experiment(args, agent_algorithm):
                 pi.set_quantile_func(quantile_func)
         args.count = 100
         if args.plot_qs:
+            import matplotlib.pyplot as plt
             colors = ['red','blue','green']
             labels = ['left','nop','right']
 
