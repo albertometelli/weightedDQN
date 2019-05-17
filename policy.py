@@ -173,7 +173,7 @@ class WeightedPolicy(TDPolicy):
                 input()'''
                 means = np.mean(q_list, axis=0)
                 max_a = np.array([np.random.choice(np.argwhere(means == np.max(means)).ravel())])
-                if self.plotters is not None:
+                if self.plotter is not None:
                     self.plotter(np.array(q_list))
                 return max_a
             else:
