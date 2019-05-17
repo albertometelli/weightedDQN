@@ -90,8 +90,8 @@ class ParticleDQN(Agent):
                     min_range = np.min(q_next[i])
                     max_range = np.max(q_next[i])
                     if max_range - min_range > self.max_spread:
-                        range = (max_range - min_range) - self.max_spread
-                        out_range = [min_range + range / 2, max_range - range / 2]
+                        clip_range = (max_range - min_range) - self.max_spread
+                        out_range = [min_range + clip_range / 2, max_range - clip_range / 2]
                         q_next[i] = ParticleDQN.scale(q_next[i], out_range=out_range, axis=None)
             q = reward.reshape(self._batch_size,
                                1) + self.mdp_info.gamma * q_next
