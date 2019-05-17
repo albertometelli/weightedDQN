@@ -128,6 +128,7 @@ def experiment(args, agent_algorithm):
             algorithm_params['update_type']=args.update_type
             algorithm_params['delta'] = args.delta
             algorithm_params['store_prob'] = args.store_prob
+            algorithm_params['max_spread'] = args.q_max, args.q_min
             approximator_params['q_min']= args.q_min
             approximator_params['q_max']= args.q_max
             approximator_params['loss']= args.loss
@@ -270,6 +271,7 @@ def experiment(args, agent_algorithm):
             algorithm_params['update_type'] = args.update_type
             algorithm_params['delta'] = args.delta
             algorithm_params['store_prob'] = args.store_prob
+            algorithm_params['max_spread'] = args.q_max, args.q_min
             approximator_params['q_min'] = args.q_min
             approximator_params['q_max'] = args.q_max
             approximator_params['loss'] = args.loss

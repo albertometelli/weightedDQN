@@ -14,7 +14,7 @@ class ParticleDQN(Agent):
                  max_replay_size, fit_params=None, approximator_params=None,
                  n_approximators=1, clip_reward=True,
                  weighted_update=False, update_type='weighted', delta=0.1,
-                 q_max=100, store_prob=False):
+                 q_max=100, store_prob=False, max_spread=None):
         self._fit_params = dict() if fit_params is None else fit_params
 
         self._batch_size = batch_size
@@ -25,6 +25,7 @@ class ParticleDQN(Agent):
         self.update_type = update_type
         self.q_max = q_max
         self.store_prob = store_prob
+        self.max_spread = max_spread
         quantiles = [i * 1. / (n_approximators - 1) for i in range(n_approximators)]
         for p in range(n_approximators):
             if quantiles[p] >= 1 - delta:
@@ -57,6 +58,12 @@ class ParticleDQN(Agent):
         prob = prob.astype(np.float32)
         return prob / np.sum(prob)
 
+    @staticmethod
+    def scale(x, out_range=(-1, 1), axis=None):
+        domain = np.min(x, axis), np.max(x, axis)
+        y = (x - (domain[1] + domain[0]) / 2) / (domain[1] - domain[0])
+        return y * (out_range[1] - out_range[0]) + (out_range[1] + out_range[0]) / 2
+
     def fit(self, dataset):
         
 
@@ -77,6 +84,15 @@ class ParticleDQN(Agent):
 
             q_next, prob_explore = self._next_q(next_state, absorbing)
 
+            if self.max_spread is not None:
+
+                for i in range(q_next.shape[0]): #for each batch
+                    min_range = np.min(q_next[i])
+                    max_range = np.max(q_next[i])
+                    if max_range - min_range > self.max_spread:
+                        range = (max_range - min_range) - self.max_spread
+                        out_range = [min_range + range / 2, max_range - range / 2]
+                        q_next[i] = ParticleDQN.scale(q_next[i], out_range=out_range, axis=None)
             q = reward.reshape(self._batch_size,
                                1) + self.mdp_info.gamma * q_next
 
