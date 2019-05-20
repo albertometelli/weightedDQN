@@ -178,7 +178,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
     algorithm_params = dict(learning_rate=learning_rate)
     if regret_test:
 
-        max_steps = 100000000
+        max_steps = 200000000
         evaluation_frequency = 1000000
         test_samples = 1000
         if name == 'ThreeArms':
