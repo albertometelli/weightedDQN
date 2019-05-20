@@ -28,7 +28,7 @@ This script can be used to run Atari experiments with DQN.
 
 # Disable tf cpp warnings
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-
+tf.logging.set_verbosity(tf.logging.ERROR)
 
 def print_epoch(epoch):
     print('################################################################')
@@ -128,7 +128,8 @@ def experiment(args, agent_algorithm):
             algorithm_params['update_type']=args.update_type
             algorithm_params['delta'] = args.delta
             algorithm_params['store_prob'] = args.store_prob
-            algorithm_params['max_spread'] = args.q_max - args.q_min
+            if args.clip_target:
+                algorithm_params['max_spread'] = args.q_max - args.q_min
             approximator_params['q_min']= args.q_min
             approximator_params['q_max']= args.q_max
             approximator_params['loss']= args.loss
@@ -271,7 +272,8 @@ def experiment(args, agent_algorithm):
             algorithm_params['update_type'] = args.update_type
             algorithm_params['delta'] = args.delta
             algorithm_params['store_prob'] = args.store_prob
-            algorithm_params['max_spread'] = args.q_max - args.q_min
+            if args.clip_target:
+                algorithm_params['max_spread'] = args.q_max - args.q_min
             approximator_params['q_min'] = args.q_min
             approximator_params['q_max'] = args.q_max
             approximator_params['loss'] = args.loss
@@ -476,6 +478,7 @@ if __name__ == '__main__':
                          default='particle',
                          help='Algorithm to use')
     arg_alg.add_argument("--weighted", action='store_true')
+    arg_alg.add_argument("--clip-target", action='store_true')
     arg_alg.add_argument("--ucb", action='store_true')
     arg_alg.add_argument("--boot", action='store_true',
                          help="Flag to use BootstrappedDQN.")
