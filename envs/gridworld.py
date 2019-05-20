@@ -5,6 +5,10 @@ from builtins import AttributeError
 from math import floor
 from mushroom.environments.finite_mdp import FiniteMDP
 
+def generate_gridworld(shape=(5,5),horizon=100, gamma=0.99,randomized_initial=False):
+    return GridWorld(shape=shape, horizon=horizon, gamma=gamma, randomized_initial=randomized_initial)
+
+
 class GridWorld(gym.Env):
 
     ACTION_LABELS = ["UP", "RIGHT", "DOWN", "LEFT"]

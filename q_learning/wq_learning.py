@@ -10,13 +10,15 @@ class Gaussian(TD):
         self._update_mode = update_mode
         self._update_type = update_type
         self.delta = delta
+
         self.n_approximators = len(init_values)
         self.Q = EnsembleTable(len(init_values), mdp_info.size)
         if q_max is None:
             q_max = 1 / (1-mdp_info.gamma)
         if self.n_approximators == 3:
             q_max = init_values[0]
-        self.q_max = q_max
+            self.sigma_b = init_values[-1]
+            self.q_max = q_max
 
         for i in range(len(self.Q.model)):
             self.Q.model[i].table = np.tile([init_values[i]], self.Q[i].shape)
@@ -89,8 +91,32 @@ class GaussianQLearning(Gaussian):
 
     def _update(self, state, action, reward, next_state, absorbing):
         if self.n_approximators == 3:
+            # theoretical version
             mean, sigma1, sigma2 = [x[state, action] for x in self.Q.model]
-            sigma = sigma1 + sigma2
+            if absorbing:
+                self.Q.model[0][state, action] = mean + self.alpha[0](state, action) * (
+                        reward - mean)
+                self.Q.model[1][state, action] = (1 - self.alpha[1](state, action)) * sigma1
+                self.Q.model[2][state, action] = self.Q.model[1][state, action] + self.alpha[2](state, action) * self.sigma_b
+            else:
+                mean_next_all, sigma_next_all1, sigma_next_all2 = \
+                    [x[next_state] for x in self.Q.model]
+                if self._update_type == 'optimistic':
+                    bounds = sigma_next_all2 * self.standard_bound + mean_next_all
+                    '''for a in range(self.mdp_info.size[-1]):
+                        bounds[a] = mean_next_all[a] + norm.ppf(1 - self.delta, loc=mean_next_all[a], scale=sigma_next_all[a] + 1e-15)'''
+                    bounds = np.clip(bounds, -self.q_max, self.q_max)
+                    best = np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())
+                    mean_next = mean_next_all[best]
+                    sigma_next = sigma_next_all2[best]
+                else:
+                    raise ValueError("Run pac-GWQL with optimistic estimator")
+                self.Q.model[0][state, action] = mean + self.alpha[0](state, action) * (
+                        reward + self.mdp_info.gamma * mean_next - mean)
+                self.Q.model[1][state, action] = sigma1 + self.alpha[1](state, action) * (
+                        self.mdp_info.gamma * sigma_next - sigma1)
+                self.Q.model[2][state, action] = self.Q.model[1][state, action] + (1 - self.alpha[2](state, action)) * self.sigma_b
+
         else:
             mean, sigma = [x[state, action] for x in self.Q.model]
             sigma1 = sigma
@@ -127,7 +153,7 @@ class GaussianQLearning(Gaussian):
                     bounds = sigma_next_all * self.standard_bound + mean_next_all
                     '''for a in range(self.mdp_info.size[-1]):
                         bounds[a] = mean_next_all[a] + norm.ppf(1 - self.delta, loc=mean_next_all[a], scale=sigma_next_all[a] + 1e-15)'''
-                    bounds = np.clip(bounds, None, self.q_max)
+                    bounds = np.clip(bounds, -self.q_max, self.q_max)
                     best = np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())
                     mean_next = mean_next_all[best]
                     sigma_next = sigma_next_all[best]

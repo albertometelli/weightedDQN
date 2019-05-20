@@ -87,26 +87,27 @@ def compute_scores(dataset, gamma):
 
 class TheoreticalParameter(Parameter):
 
-    def __init__(self, value=1.1, b=2, decay_exp=1., min_value=None, size=(1,)):
+    def __init__(self, a=1.1, b=2, decay_exp=1., min_value=None, size=(1,)):
         self._decay_exp = decay_exp
-        self.a = value
+        self.a = a
         self.b = b
-        super(TheoreticalParameter, self).__init__(value/b, min_value, size)
+        super(TheoreticalParameter, self).__init__(a/b, min_value, size)
 
     def _compute(self, *idx, **kwargs):
-        n = np.maximum(self._n_updates[idx], 1)
+        n = self._n_updates[idx]
         return self.a / (self.b + n ** self._decay_exp)
 
 class BetaParameter(Parameter):
 
-    def __init__(self, b=2, min_value=None, size=(1,)):
-        self.b = b
-        value = 1 - np.sqrt(1 - 1 / self.b)
+    def __init__(self, c=2,d=2, min_value=None, size=(1,)):
+        self.c = c
+        self.d = d
+        value = c / np.sqrt(d)
         super(BetaParameter, self).__init__(value, min_value, size)
 
     def _compute(self, *idx, **kwargs):
-        n = np.maximum(self._n_updates[idx], 1)
-        return 1 - np.sqrt(1 - 1 / (2 + n))
+        n = self._n_updates[idx]
+        return self. c / np.sqrt(self.d + n)
 
 def experiment(algorithm, name, update_mode, update_type, policy, n_approximators, q_max, q_min,
                lr_exp, R, log_lr, r_max_m, delayed_m, delayed_epsilon, delta, debug, double,
@@ -340,23 +341,26 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             gamma = mdp.info.gamma
             T = max_steps
             S, A = mdp.info.size
-            a = 1 / (1 - gamma) + 1
+            a = (2 + gamma) / (2 *(1 - gamma))
             b = a - 1
-            c = 2
+            c = 1
+            d = 1
             q_max = R / (1 - gamma)
             standard_bound = norm.ppf(1 - delta, loc=0, scale=1)
-            first_fac = np.sqrt(b + T)
-            second_fac = np.sqrt(a * np.log(S*A*T / delta))
-            sigma2_factor = min(np.sqrt(b + T), np.sqrt(a * np.log(S*A*T / delta)))
+            #first_fac = np.sqrt(b + T)
+            #second_fac = np.sqrt(a * np.log(S*A*T / delta))
+            #sigma2_factor = min(np.sqrt(b + T), np.sqrt(a * np.log(S*A*T / delta)))
 
             q_0 = q_max
             sigma1_0 = 0
-            sigma2_0 = (R + gamma * q_max) / (standard_bound * np.sqrt(c-1)) * sigma2_factor
+            #sigma2_0 = (R + gamma * q_max) / (standard_bound * np.sqrt(c-1)) * sigma2_factor
+
+            sigma2_0 = (gamma * q_max) / (c * standard_bound) * np.sqrt(a * np.log(S * A * T / delta))
             init_values = (q_0, sigma1_0, sigma2_0)
-            learning_rate = TheoreticalParameter(value=a, b=b, decay_exp=1,
+            learning_rate = TheoreticalParameter(a=a, b=b, decay_exp=1,
                                                  size=mdp.info.size)
             algorithm_params = dict(learning_rate=learning_rate)
-            sigma_lr = BetaParameter(b=b, size=mdp.info.size)
+            sigma_lr = BetaParameter(c=c, d=1, size=mdp.info.size)
             def evaluate_policy(P, R, policy):
 
                 P_pi = np.zeros((S, S))
@@ -425,7 +429,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
                 if regret_test:
                     sigmas1 = np.array(q.predict(state, idx=1))
                     sigmas2 = np.array(q.predict(state, idx=2))
-                    sigmas = sigmas1 + sigmas2
+                    sigmas = sigmas2
                 else:
                     sigmas = np.array(q.predict(state, idx=1))
                 out = sigmas * standard_bound + means
