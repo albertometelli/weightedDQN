@@ -610,7 +610,7 @@ if __name__ == '__main__':
                          help="Horizon of r-max algorithm.")
     arg_alg.add_argument("--m", type=int, default=1000,
                          help="threshold for r-max algorithm.")
-    arg_alg.add_argument("--delayed-ratio", type=int, default=0.26,
+    arg_alg.add_argument("--delayed-ratio", type=float, default=0.26,
                          help="% of q-max")
     arg_alg.add_argument("--value_iterations", type=int, default=5000,
                          help="max_iterations of VI")
