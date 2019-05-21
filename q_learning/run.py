@@ -270,7 +270,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         if regret_test:
             gamma = mdp.info.gamma
             Vmax = R / (1 - gamma)
-            epsilon = 0.15 * Vmax
+            epsilon = args.delayed_ratio * Vmax
             delayed_epsilon = epsilon*(1-gamma)
             delta = 0.1
             S, A = mdp.info.size
@@ -610,6 +610,8 @@ if __name__ == '__main__':
                          help="Horizon of r-max algorithm.")
     arg_alg.add_argument("--m", type=int, default=1000,
                          help="threshold for r-max algorithm.")
+    arg_alg.add_argument("--delayed-ratio", type=int, default=0.26,
+                         help="% of q-max")
     arg_alg.add_argument("--value_iterations", type=int, default=5000,
                          help="max_iterations of VI")
     arg_alg.add_argument("--tolerance", type=float, default=0.01,
