@@ -270,7 +270,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         if regret_test:
             gamma = mdp.info.gamma
             Vmax = R / (1 - gamma)
-            epsilon = 0.26 * Vmax
+            epsilon = 0.15 * Vmax
             delayed_epsilon = epsilon*(1-gamma)
             delta = 0.1
             S, A = mdp.info.size
@@ -360,7 +360,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             learning_rate = TheoreticalParameter(a=a, b=b, decay_exp=1,
                                                  size=mdp.info.size)
             algorithm_params = dict(learning_rate=learning_rate)
-            sigma_lr = BetaParameter(c=c, d=1, size=mdp.info.size)
+            sigma_lr = BetaParameter(c=c, d=d, size=mdp.info.size)
             def evaluate_policy(P, R, policy):
 
                 P_pi = np.zeros((S, S))

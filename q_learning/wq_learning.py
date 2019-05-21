@@ -103,8 +103,6 @@ class GaussianQLearning(Gaussian):
                     [x[next_state] for x in self.Q.model]
                 if self._update_type == 'optimistic':
                     bounds = sigma_next_all2 * self.standard_bound + mean_next_all
-                    '''for a in range(self.mdp_info.size[-1]):
-                        bounds[a] = mean_next_all[a] + norm.ppf(1 - self.delta, loc=mean_next_all[a], scale=sigma_next_all[a] + 1e-15)'''
                     bounds = np.clip(bounds, -self.q_max, self.q_max)
                     best = np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())
                     mean_next = mean_next_all[best]
@@ -115,7 +113,7 @@ class GaussianQLearning(Gaussian):
                         reward + self.mdp_info.gamma * mean_next - mean)
                 self.Q.model[1][state, action] = sigma1 + self.alpha[1](state, action) * (
                         self.mdp_info.gamma * sigma_next - sigma1)
-                self.Q.model[2][state, action] = self.Q.model[1][state, action] + (1 - self.alpha[2](state, action)) * self.sigma_b
+                self.Q.model[2][state, action] = self.Q.model[1][state, action] + self.alpha[2](state, action) * self.sigma_b
 
         else:
             mean, sigma = [x[state, action] for x in self.Q.model]
