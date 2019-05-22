@@ -309,7 +309,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 
         agent = DelayedQLearning(mdp.info, **algorithm_params)
         if regret_test:
-            collect_vs_callback = CollectVs(mdp, agent, evaluate_policy, 10000)
+            collect_vs_callback = CollectVs(mdp, agent, evaluate_policy, args.freq_collection)
             if debug:
                 print("Q:")
                 print(agent.get_approximator()[:, :])
@@ -410,7 +410,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             if debug:
                 freq = 10
             else:
-                freq = 10000
+                freq = args.freq_collection
             collect_vs_callback = CollectVs(mdp, agent, evaluate_policy, freq)
         if debug:
             print("Policy:")
@@ -612,7 +612,7 @@ if __name__ == '__main__':
                          help="Number of particles used (Particle QL).")
     arg_alg.add_argument("--horizon", type=int, default=1000,
                          help="Horizon of r-max algorithm.")
-    arg_alg.add_argument("--max-steps-regret", type=int, default=100,
+    arg_alg.add_argument("--max-steps-regret", type=int, default=200,
                          help="max steps in regret test in millions")
     arg_alg.add_argument("--m", type=int, default=1000,
                          help="threshold for r-max algorithm.")
@@ -625,6 +625,8 @@ if __name__ == '__main__':
     arg_alg.add_argument("--C", type=float, default=0.3,
                          help="parameter of MBIE")
     arg_alg.add_argument("--delayed-m", type=float, default=1.0,
+                         help="m parameter of delayed-ql.")
+    arg_alg.add_argument("--freq-collection", type=int, default=100000,
                          help="m parameter of delayed-ql.")
     arg_alg.add_argument("--epsilon", type=int, default=1.0,
                          help="threshold for delayed-q algorithm.")

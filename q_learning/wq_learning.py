@@ -131,76 +131,45 @@ class GaussianQLearning(Gaussian):
 
         else:
             mean, sigma = [x[state, action] for x in self.Q.model]
-            sigma1 = sigma
-        self.last_update = (state, action)
-        if absorbing:
-            self.Q.model[0][state, action] = mean + self.alpha[0](state, action) * (
-                        reward - mean)
-            self.Q.model[1][state, action] = (1 - self.alpha[1](state, action)) * sigma1
-            if self.n_approximators == 3:
-                self.Q.model[2][state, action] = (1 - self.alpha[2](state, action)) * sigma2
-        else:
-            if self.n_approximators == 3:
-                mean_next_all, sigma_next_all1, sigma_next_all2  = \
-                    [x[next_state] for x in self.Q.model]
-                sigma_next_all = sigma_next_all1 + sigma_next_all2
+            sigma = sigma
+            self.last_update = (state, action)
+            if absorbing:
+                self.Q.model[0][state, action] = mean + self.alpha[0](state, action) * (
+                            reward - mean)
+                self.Q.model[1][state, action] = (1 - self.alpha[1](state, action)) * sigma
             else:
                 mean_next_all, sigma_next_all = [x[next_state] for x in self.Q.model]
-                sigma_next_all1 = sigma_next_all
-            if self._update_mode == 'deterministic':
-                if self._update_type == 'mean':
-                    best = np.random.choice(np.argwhere(mean_next_all == np.max(mean_next_all)).ravel())
-                    mean_next = mean_next_all[best]
-                    sigma_next = sigma_next_all[best]
+                if self._update_mode == 'deterministic':
+                    if self._update_type == 'mean':
+                        best = np.random.choice(np.argwhere(mean_next_all == np.max(mean_next_all)).ravel())
+                        mean_next = mean_next_all[best]
+                        sigma_next = sigma_next_all[best]
 
-                elif self._update_type == 'weighted':
-                    prob = GaussianQLearning._compute_prob_max(mean_next_all, sigma_next_all)
-                    mean_next = np.sum(mean_next_all * prob)
-                    if self.minimize_wasserstein:
-                        sigma_next = np.sum(prob * sigma_next_all)
+                    elif self._update_type == 'weighted':
+                        prob = GaussianQLearning._compute_prob_max(mean_next_all, sigma_next_all)
+                        mean_next = np.sum(mean_next_all * prob)
+                        if self.minimize_wasserstein:
+                            sigma_next = np.sum(prob * sigma_next_all)
+                        else:
+                            sigma_next = np.sum((sigma_next_all + (mean_next - mean_next_all) ** 2) * prob)
+
+                    elif self._update_type == 'optimistic':
+                        bounds = sigma_next_all * self.standard_bound + mean_next_all
+                        bounds = np.clip(bounds, -self.q_max, self.q_max)
+                        best = np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())
+                        mean_next = mean_next_all[best]
+                        sigma_next = sigma_next_all[best]
+
                     else:
-                        sigma_next = np.sum((sigma_next_all + (mean_next - mean_next_all) ** 2) * prob)
+                        raise ValueError()
 
-                elif self._update_type == 'optimistic':
-                    bounds = sigma_next_all * self.standard_bound + mean_next_all
-                    '''for a in range(self.mdp_info.size[-1]):
-                        bounds[a] = mean_next_all[a] + norm.ppf(1 - self.delta, loc=mean_next_all[a], scale=sigma_next_all[a] + 1e-15)'''
-                    bounds = np.clip(bounds, -self.q_max, self.q_max)
-                    best = np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())
-                    mean_next = mean_next_all[best]
-                    sigma_next = sigma_next_all[best]
+                    self.Q.model[0][state, action] = mean + self.alpha[0](state, action) * (
+                            reward + self.mdp_info.gamma * mean_next - mean)
+                    self.Q.model[1][state, action] = sigma + self.alpha[1](state, action) * (
+                            self.mdp_info.gamma * sigma_next - sigma)
 
                 else:
-                    raise ValueError()
-                self.Q.model[0][state, action] = mean + self.alpha[0](state, action) * (
-                        reward + self.mdp_info.gamma * mean_next - mean)
-                if self. n_approximators == 2:
-                    self.Q.model[1][state, action] = sigma1 + self.alpha[1](state, action) * (
-                        self.mdp_info.gamma * sigma_next - sigma1)
-                else:
-                    self.Q.model[1][state, action] = sigma1 + self.alpha[1](state, action) * (
-                            self.mdp_info.gamma * min(sigma_next, self.standard_bound*(self.q_max - mean))
-                            - sigma1)
-                    self.Q.model[2][state, action] = (1 - self.alpha[2](state, action)) * sigma2
-
-                '''if self.n_approximators == 3:
-                    means, sigmas1, sigmas2 = [x[[state]] for x in self.Q.model]
-                    sigmas = sigmas1 + sigmas2
-                else:
-                    means, sigmas = [x[[state]] for x in self.Q.model]
-
-                bounds = sigmas * self.standard_bound + means
-                bounds = np.clip(bounds, None, self.q_max)
-
-                actions = np.argwhere(bounds == np.max(bounds)).ravel()
-                n = len(actions)
-                for a in range(self.mdp_info.size[-1]):
-                    if a in actions:
-                        self.policy_matrix[state, a] = 1. / n
-                    else:
-                        self.policy_matrix[state, a] = 0'''
-            else:
-                raise NotImplementedError()
+                    raise NotImplementedError()
 
     def get_policy(self):
         '''policy = np.zeros(self.mdp_info.size)
