@@ -183,7 +183,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         test_samples = 1000
         if debug:
             max_steps = 100000
-            evaluation_frequency =  max_steps / 100
+            evaluation_frequency =  max_steps // 100
             test_samples = 1000
         
     if algorithm == 'ql':
@@ -492,10 +492,22 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
         if hasattr(pi, 'set_eval'):
             pi.set_eval(True)
         dataset = core.evaluate(n_steps=test_samples, quiet=True)
-        mdp.reset()
+        s = mdp.reset()
         scores = compute_scores(dataset, mdp.info.gamma)
         print('Evaluation #%d:%s ' %(n_epoch, scores))
-
+        if debug:
+            print("Policy:")
+            print(agent.get_policy())
+            print("Q")
+            for state in range(S):
+                means = np.array(agent.approximator.predict(np.array([state]), idx=0))
+                sigmas1 = np.array(agent.approximator.predict(np.array([state]), idx=1))
+                sigmas2 = np.array(agent.approximator.predict(np.array([state]), idx=2))
+                print("Means:{}".format(means))
+                print("Sigmas1:{}".format(sigmas1))
+                print("Sigmas2:{}".format(sigmas2))
+            print("V:{}".format(evaluate_policy(mdp.p, mdp.r, agent.get_policy())))
+            input()
         test_scores.append(scores)
         if regret_test:
             np.save(out_dir + "/scores_offline" + str(seed), test_scores)
