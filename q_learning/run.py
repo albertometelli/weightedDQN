@@ -662,7 +662,7 @@ if __name__ == '__main__':
     arg_alg.add_argument("--regret-test", action='store_true',
                          help='Whether to run the regret tests')
     arg_run = parser.add_argument_group('Run')
-    arg_run.add_argument("--n-experiments", type=int, default=1,
+    arg_run.add_argument("--n-experiments", type=int, default=10,
                          help='Number of experiments to execute.')
     arg_run.add_argument("--dir", type=str, default='./tabular_data',
                          help='Directory where to save data.')
