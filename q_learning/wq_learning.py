@@ -27,9 +27,8 @@ class Gaussian(TD):
                                        learning_rate)
         if sigma_learning_rate is None:
             sigma_learning_rate = deepcopy(learning_rate)
-        if sigma_1_learning_rate is None:
-            sigma_1_learning_rate = deepcopy(learning_rate)
-        self.alpha = [deepcopy(self.alpha), deepcopy(sigma_1_learning_rate), deepcopy(sigma_learning_rate)]
+
+        self.alpha = [deepcopy(self.alpha), deepcopy(self.alpha), deepcopy(sigma_learning_rate)]
         self.minimize_wasserstein = minimize_wasserstein
         policy = np.zeros(self.mdp_info.size)
         self.standard_bound = norm.ppf(1 - self.delta, loc=0, scale=1)
