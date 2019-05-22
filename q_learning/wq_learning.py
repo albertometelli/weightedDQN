@@ -115,6 +115,18 @@ class GaussianQLearning(Gaussian):
                         self.mdp_info.gamma * sigma_next - sigma1)
                 self.Q.model[2][state, action] = self.Q.model[1][state, action] + self.alpha[2](state, action) * self.sigma_b
 
+            mean, sigma1, sigma2 = [x[state, action] for x in self.Q.model]
+            bounds = sigma2 * self.standard_bound + mean
+            bounds = np.clip(bounds, -self.q_max, self.q_max)
+
+            actions = np.argwhere(bounds == np.max(bounds)).ravel()
+            n = len(actions)
+            for a in range(self.mdp_info.size[-1]):
+                if a in actions:
+                    self.policy_matrix[state, a] = 1. / n
+                else:
+                    self.policy_matrix[state, a] = 0
+
         else:
             mean, sigma = [x[state, action] for x in self.Q.model]
             sigma1 = sigma
