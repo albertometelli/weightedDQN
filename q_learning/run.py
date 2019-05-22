@@ -340,7 +340,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             a = (2 + gamma) / (2 *(1 - gamma))
             b = a - 1
             c = 1
-            d = 1
+            d = b
             q_max = R / (1 - gamma)
             standard_bound = norm.ppf(1 - delta, loc=0, scale=1)
             #first_fac = np.sqrt(b + T)
@@ -382,6 +382,10 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
                 print("mu0:{}".format(q_0))
                 print("Sigma1_0:{}".format(sigma1_0))
                 print("Sigma2_0:{}".format(sigma2_0))
+                print("a:{}".format(a))
+                print("b:{}".format(b))
+                print("c:{}".format(c))
+                print("d:{}".format(d))
                 print("T:{}".format(T))
                 print("S:{}".format(S))
                 print("A:{}".format(A))
