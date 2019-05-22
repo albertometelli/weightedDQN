@@ -178,7 +178,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
     algorithm_params = dict(learning_rate=learning_rate)
     if regret_test:
 
-        max_steps = 200000000
+        max_steps = args.max_steps_regret
         evaluation_frequency = 1000000
         test_samples = 1000
         if name == 'ThreeArms':
@@ -607,6 +607,8 @@ if __name__ == '__main__':
     arg_alg.add_argument("--n-approximators", type=int, default=20,
                          help="Number of particles used (Particle QL).")
     arg_alg.add_argument("--horizon", type=int, default=1000,
+                         help="Horizon of r-max algorithm.")
+    arg_alg.add_argument("--max-steps-regret", type=int, default=100000000,
                          help="Horizon of r-max algorithm.")
     arg_alg.add_argument("--m", type=int, default=1000,
                          help="threshold for r-max algorithm.")

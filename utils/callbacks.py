@@ -80,15 +80,15 @@ class CollectVs:
             **kwargs (dict): empty dictionary.
 
         """
-
+        if self.collect:
+            self.count += 1
         if self.count % self.frequency == 0 and self.collect:
             v_func = list(self.evaluate_policy(self.mdp.p, self.mdp.r, self.agent.get_policy()))
 
             state = dataset[0][0][0]
             self._vs.append(np.array(v_func+[state]))
             self.count = 0
-        if self.collect:
-            self.count += 1
+
     def get_values(self):
         """
         Returns:
