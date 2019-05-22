@@ -178,16 +178,16 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
     algorithm_params = dict(learning_rate=learning_rate)
     if regret_test:
 
-        max_steps = args.max_steps_regret
-        evaluation_frequency = 1000000
+        max_steps = args.max_steps_regret * 1e6
+        evaluation_frequency = max_steps / 100
         test_samples = 1000
         if name == 'ThreeArms':
-            max_steps = 200000000
-            evaluation_frequency = 2000000
+            max_steps = args.max_steps_regret * 1e6
+            evaluation_frequency = max_steps / 100
             test_samples = 1000
         if debug:
             max_steps = 100000
-            evaluation_frequency = 1000
+            evaluation_frequency =  max_steps / 100
             test_samples = 1000
         
     if algorithm == 'ql':
@@ -340,6 +340,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             sigma_lr = None
             gamma = mdp.info.gamma
             T = max_steps
+            print("T:",T)
             S, A = mdp.info.size
             a = (2 + gamma) / (2 *(1 - gamma))
             b = a - 1
@@ -608,8 +609,8 @@ if __name__ == '__main__':
                          help="Number of particles used (Particle QL).")
     arg_alg.add_argument("--horizon", type=int, default=1000,
                          help="Horizon of r-max algorithm.")
-    arg_alg.add_argument("--max-steps-regret", type=int, default=100000000,
-                         help="Horizon of r-max algorithm.")
+    arg_alg.add_argument("--max-steps-regret", type=int, default=100,
+                         help="max steps in regret test in millions")
     arg_alg.add_argument("--m", type=int, default=1000,
                          help="threshold for r-max algorithm.")
     arg_alg.add_argument("--delayed-ratio", type=float, default=0.26,
