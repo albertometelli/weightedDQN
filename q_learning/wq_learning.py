@@ -6,7 +6,7 @@ from scipy.stats import norm
 import sys
 class Gaussian(TD):
     def __init__(self, policy, mdp_info, learning_rate, sigma_learning_rate=None, sigma_1_learning_rate=None, update_mode='deterministic',
-                 update_type='weighted', init_values=[0., 0., 500.], delta=0.1, q_max=None, minimize_wasserstein=True):
+                 update_type='weighted', init_values=[0., 0., 500.], delta=0.1, q_max=None, minimize_wasserstein=True, clip_variance=True):
         self._update_mode = update_mode
         self._update_type = update_type
         self.delta = delta
@@ -46,6 +46,7 @@ class Gaussian(TD):
                 policy[s, a] = 1. / n
         self.policy_matrix = policy
         self.last_update = (0,0)
+        self.clip_variance = clip_variance
 
     def _update(self, state, action, reward, next_state, absorbing):
         raise NotImplementedError
@@ -110,6 +111,10 @@ class GaussianQLearning(Gaussian):
                     sigma_next = sigma_next_all2[best]
                 else:
                     raise ValueError("Run pac-GWQL with optimistic estimator")
+
+                if self.clip_variance:
+                    sigma_next = min(self.q_max - mean / self.standard_bound, sigma_next)
+
                 self.Q.model[0][state, action] = mean + self.alpha[0](state, action) * (
                         reward + self.mdp_info.gamma * mean_next - mean)
                 self.Q.model[1][state, action] = sigma1 + self.alpha[1](state, action) * (

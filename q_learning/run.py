@@ -434,6 +434,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
                     sigmas1 = np.array(q.predict(state, idx=1))
                     sigmas2 = np.array(q.predict(state, idx=2))
                     sigmas = sigmas2
+                    #print(sigmas1, sigmas2)
                 else:
                     sigmas = np.array(q.predict(state, idx=1))
                 out = sigmas * standard_bound + means
@@ -661,7 +662,7 @@ if __name__ == '__main__':
     arg_alg.add_argument("--regret-test", action='store_true',
                          help='Whether to run the regret tests')
     arg_run = parser.add_argument_group('Run')
-    arg_run.add_argument("--n-experiments", type=int, default=10,
+    arg_run.add_argument("--n-experiments", type=int, default=1,
                          help='Number of experiments to execute.')
     arg_run.add_argument("--dir", type=str, default='./tabular_data',
                          help='Directory where to save data.')
