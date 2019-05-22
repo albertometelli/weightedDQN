@@ -272,7 +272,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             S, A = mdp.info.size
 
             theoretic_m = (1 + gamma*Vmax)**2 / (2*delayed_epsilon**2) * np.log(3*S*A/delta * (1 + S*A/(delayed_epsilon*(1-gamma))))
-            if True:
+            if debug:
                 print("Delta:{}".format(delta))
                 print("R:{}".format(R))
                 print("Vmax:{}".format(Vmax))
@@ -375,7 +375,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
 
                 V = np.linalg.solve(I - gamma * P_pi, R_pi)
                 return V
-            if True:
+            if debug:
                 print("Delta:{}".format(delta))
                 print("R:{}".format(R))
                 print("Gamma:{}".format(mdp.info.gamma))
