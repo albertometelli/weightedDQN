@@ -338,7 +338,7 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             T = max_steps
             S, A = mdp.info.size
             a = (2 + gamma) / (2 *(1 - gamma))
-            b = a
+            b = a - 1
             c = 1
             d = b
             q_max = R / (1 - gamma)
