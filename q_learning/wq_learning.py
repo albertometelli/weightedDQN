@@ -5,7 +5,7 @@ from mushroom.utils.table import EnsembleTable
 from scipy.stats import norm
 import sys
 class Gaussian(TD):
-    def __init__(self, policy, mdp_info, learning_rate, sigma_learning_rate=None, update_mode='deterministic',
+    def __init__(self, policy, mdp_info, learning_rate, sigma_learning_rate=None, sigma_1_learning_rate=None, update_mode='deterministic',
                  update_type='weighted', init_values=[0., 0., 500.], delta=0.1, q_max=None, minimize_wasserstein=True):
         self._update_mode = update_mode
         self._update_type = update_type
@@ -27,7 +27,9 @@ class Gaussian(TD):
                                        learning_rate)
         if sigma_learning_rate is None:
             sigma_learning_rate = deepcopy(learning_rate)
-        self.alpha = [deepcopy(self.alpha), deepcopy(self.alpha), deepcopy(sigma_learning_rate)]
+        if sigma_1_learning_rate is None:
+            sigma_1_learning_rate = deepcopy(learning_rate)
+        self.alpha = [deepcopy(self.alpha), deepcopy(sigma_1_learning_rate), deepcopy(sigma_learning_rate)]
         self.minimize_wasserstein = minimize_wasserstein
         policy = np.zeros(self.mdp_info.size)
         self.standard_bound = norm.ppf(1 - self.delta, loc=0, scale=1)

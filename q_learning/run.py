@@ -340,7 +340,6 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             sigma_lr = None
             gamma = mdp.info.gamma
             T = max_steps
-            print("T:",T)
             S, A = mdp.info.size
             a = (2 + gamma) / (2 *(1 - gamma))
             b = a - 1
@@ -360,7 +359,11 @@ def experiment(algorithm, name, update_mode, update_type, policy, n_approximator
             init_values = (q_0, sigma1_0, sigma2_0)
             learning_rate = TheoreticalParameter(a=a, b=b, decay_exp=1,
                                                  size=mdp.info.size)
-            algorithm_params = dict(learning_rate=learning_rate)
+            learning_rate_sigma1 = TheoreticalParameter(a=a, b=b, decay_exp=1,
+                                                 size=mdp.info.size)
+            algorithm_params = dict(learning_rate=learning_rate,
+                                    sigma_1_learning_rate=learning_rate_sigma1)
+
             sigma_lr = BetaParameter(c=c, d=d, size=mdp.info.size)
             def evaluate_policy(P, R, policy):
 
