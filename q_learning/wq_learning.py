@@ -47,6 +47,8 @@ class Gaussian(TD):
         self.policy_matrix = policy
         self.last_update = (0,0)
         self.clip_variance = clip_variance
+        if self.clip_variance:
+            print("***CLIPPING VARIANCE***")
 
     def _update(self, state, action, reward, next_state, absorbing):
         raise NotImplementedError
