@@ -239,7 +239,7 @@ class UCBPolicy(TDPolicy):
             return np.array([np.random.choice(np.argwhere(means == np.max(means)).ravel())])
         bounds = self.quantile_func(state)
         #qs = means + bounds
-        bounds = np.clip(bounds, -self.q_max, self.q_max)
+        #bounds = np.clip(bounds, -self.q_max, self.q_max)
         a = np.array([np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())])
         if self.plotter is not None:
             self.plotter(np.array(self._approximator.predict(state)))

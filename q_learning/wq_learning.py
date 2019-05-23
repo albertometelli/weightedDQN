@@ -107,7 +107,7 @@ class GaussianQLearning(Gaussian):
                     [x[next_state] for x in self.Q.model]
                 if self._update_type == 'optimistic':
                     bounds = sigma_next_all2 * self.standard_bound + mean_next_all
-                    bounds = np.clip(bounds, -self.q_max, self.q_max)
+                    #bounds = np.clip(bounds, -self.q_max, self.q_max)
                     best = np.random.choice(np.argwhere(bounds == np.max(bounds)).ravel())
                     mean_next = mean_next_all[best]
                     sigma_next = sigma_next_all2[best]
@@ -125,7 +125,7 @@ class GaussianQLearning(Gaussian):
             #update della policy_matrix--- Non fa parte di gaussian-wql
             mean, sigma1, sigma2 = [x[state] for x in self.Q.model]
             bounds = sigma2 * self.standard_bound + mean
-            bounds = np.clip(bounds, -self.q_max, self.q_max)
+            #bounds = np.clip(bounds, -self.q_max, self.q_max)
             actions = np.argwhere(bounds == np.max(bounds)).ravel()
             n = len(actions)
             for a in range(self.mdp_info.size[-1]):
