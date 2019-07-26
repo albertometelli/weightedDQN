@@ -197,13 +197,19 @@ class ParticleDoubleDQN(ParticleDQN):
         for i in range(q.shape[1]):
             if absorbing[i]:
                 tq[:, i, :] *= 1. - absorbing[i]
+        max_q = np.zeros((q.shape[1], q.shape[0]))
+        prob_explore = np.zeros(q.shape[1])
+        for i in range(q.shape[1]):  # for each batch
+            particles = q[:, i, :]
+            tg_particles = tq[:, i,:]
+            particles = np.sort(particles, axis=0)
+            prob = ParticleDQN._compute_prob_max(particles)
 
-        max_a = np.argmax(q, axis=2)
+            max_q[i, :] = np.dot(tg_particles, prob)
+            if self.store_prob:
+                prob_explore[i] = (1 - np.max(prob))
 
-        double_q = np.zeros(q.shape[:2])
-        for i in range(double_q.shape[0]):
-            for j in range(double_q.shape[1]):
-                double_q[i, j] = tq[i, j, max_a[i, j]]
-
-        return double_q.T
+        if self.store_prob:
+            return max_q, np.mean(prob_explore)
+        return max_q, 0
 
