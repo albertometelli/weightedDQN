@@ -3,7 +3,6 @@ import tensorflow as tf
 
 
 class SimpleNet:
-
     @staticmethod
     def triple_loss(particles, targets, k, margin):
         loss = 0
@@ -52,23 +51,22 @@ class SimpleNet:
                                                              shape=w[i].shape))
                         self._w.append(w[i].assign(self._target_w[i]))
 
-    def predict(self, s, idx=None):
+    def predict(self, s, a, idx=None):
         if idx is not None:
-            return self._session.run(self._q[idx], feed_dict={self._x: s})
+            return self._session.run(self._q[idx], feed_dict={self._x: s, self._action: a})
         else:
             #s = np.array([s])
             return np.array(
-                [self._session.run(self._q, feed_dict={self._x: s})])
+                [self._session.run(self._q, feed_dict={self._x: s, self._action: a})])
 
-    def fit(self, s, a, q, mask, prob_exploration, margin):
+    def fit(self, s, a, q, prob_exploration, margin):
         #s = np.transpose(s, [0, 2, 3, 1])
         #s = np.array([s])
         summaries, _ = self._session.run(
             [self._merged, self._train_step],
             feed_dict={self._x: s,
-                       self._action: a.ravel().astype(np.uint8),
+                       self._action: a,
                        self._target_q: q,
-                       self._mask: mask,
                        self._prob_exploration: prob_exploration,
                        self._margin: margin}
         )
@@ -132,20 +130,13 @@ class SimpleNet:
                                             convnet_pars['output_shape'][0],
                                             name='action_one_hot')
 
-            with tf.variable_scope('Mask'):
-                self._mask = tf.placeholder(
-                    tf.float32, shape=[None, convnet_pars['n_approximators']])
-
             if convnet_pars['n_states'] is not None:
                 x = tf.one_hot(tf.cast(self._x[..., 0], tf.int32),
                                convnet_pars['n_states'])
             else:
                 x = self._x[...]
 
-            self._features = list()
-            self._features2 = list()
-            self._q = list()
-            self._q_acted = list()
+            x = tf.stack([x, self._action], axis=0)
             self.n_approximators = convnet_pars['n_approximators']
             self.q_min = convnet_pars['q_min']
             self.q_max = convnet_pars['q_max']
@@ -156,51 +147,38 @@ class SimpleNet:
                 bias_initializer = lambda _: tf.zeros_initializer()
             else:
                 initial_values = np.linspace(self.q_min, self.q_max, self.n_approximators)
-                kernel_initializer = lambda _: tf.glorot_uniform_initializer()
-                bias_initializer = lambda i: tf.constant_initializer(initial_values[i])
+                kernel_initializer = tf.glorot_uniform_initializer()
+                bias_initializer = tf.constant_initializer(initial_values)
 
-            for i in range(self.n_approximators):
-                with tf.variable_scope('head_' + str(i)):
-                    if convnet_pars["net_type"] == 'features':
-                        self._features.append(tf.layers.dense(
-                            x, 24,
-                            activation=tf.nn.relu,
-                            kernel_initializer=tf.glorot_uniform_initializer(),
-                            name='features_' + str(i)
-                        ))
-                        self._features2.append(tf.layers.dense(
-                            self._features[i], 48,
-                            activation=tf.nn.relu,
-                            kernel_initializer=tf.glorot_uniform_initializer(),
-                            name='features2_' + str(i)
-                        ))
-                        self._q.append(tf.layers.dense(
-                            self._features2[i],
-                            convnet_pars['output_shape'][0],
-                            kernel_initializer=kernel_initializer(i),
-                            bias_initializer=bias_initializer(i),
-                            name='q_' + str(i)
-                        ))
-                        self._q_acted.append(
-                            tf.reduce_sum(self._q[i] * action_one_hot,
-                                          axis=1,
-                                          name='q_acted_' + str(i))
-                        )
-                    else:
-                        self._q.append(tf.layers.dense(
-                            x,
-                            convnet_pars['output_shape'][0],
-                            kernel_initializer=kernel_initializer(i),
-                            bias_initializer=bias_initializer(i),
-                            name='q_' + str(i)
-                        ))
-                        self._q_acted.append(
-                            tf.reduce_sum(self._q[i] * action_one_hot,
-                                          axis=1,
-                                          name='q_acted_' + str(i))
-                        )
-
-            self._q_acted = tf.transpose(self._q_acted)
+            with tf.variable_scope('q'):
+                if convnet_pars["net_type"] == 'features':
+                    self._features = tf.layers.dense(
+                        x, 24,
+                        activation=tf.nn.relu,
+                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        name='features'
+                    )
+                    self._features2 = tf.layers.dense(
+                        self._features, 48,
+                        activation=tf.nn.relu,
+                        kernel_initializer=tf.glorot_uniform_initializer(),
+                        name='features2'
+                    )
+                    self._q = tf.layers.dense(
+                        self._features2,
+                        self.n_approximators,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        name='q'
+                    )
+                else:
+                    self._q = tf.layers.dense(
+                        x,
+                        self.n_approximators,
+                        kernel_initializer=kernel_initializer,
+                        bias_initializer=bias_initializer,
+                        name='q'
+                    )
 
             self._target_q = tf.placeholder(
                 'float32',
@@ -209,9 +187,8 @@ class SimpleNet:
             )
             self._margin = tf.placeholder('float32', (),
                                                     name='margin')
-            self._q_acted_sorted = tf.contrib.framework.sort(self._q_acted, axis=1)
+            self._q_sorted = tf.contrib.framework.sort(self._q, axis=1)
             self._target_q_sorted = tf.contrib.framework.sort(self._target_q, axis=1)
-
             loss = 0.
             if convnet_pars["loss"] == "huber_loss":
                 self.loss_fuction = tf.losses.huber_loss
@@ -219,24 +196,21 @@ class SimpleNet:
                 self.loss_fuction = tf.losses.mean_squared_error
             k = convnet_pars['n_approximators']
             if convnet_pars["loss"] == "triple_loss":
-
-                loss = SimpleNet.triple_loss(self._q_acted_sorted, self._target_q_sorted, k , self._margin)
+                loss = SimpleNet.triple_loss(self._q_sorted, self._target_q_sorted, k , self._margin)
             else:
                 for i in range(convnet_pars['n_approximators']):
-
                     loss += self.loss_fuction(
                         self._target_q_sorted[:, i],
-                        self._q_acted_sorted[:, i]
+                        self._q_sorted[:, i]
                     )
-
             self._prob_exploration = tf.placeholder('float32', (),
                                                     name='prob_exploration')
             tf.summary.scalar(convnet_pars["loss"], loss)
             tf.summary.scalar('average_q', tf.reduce_mean(self._q))
             # tf.summary.scalar('average_std', tf.reduce_mean(tf.sqrt(tf.nn.moments(self._q, axes=[0])[1])))
             tf.summary.scalar('prob_exploration', self._prob_exploration)
-            tf.summary.scalar('std_acted', tf.reduce_mean(tf.nn.moments(self._q_acted,axes=1)[1]))
-            tf.summary.histogram('qs', tf.reduce_mean(self._q_acted,axis=0))
+            tf.summary.scalar('std_acted', tf.reduce_mean(tf.nn.moments(self._q, axes=1)[1]))
+            tf.summary.histogram('qs', tf.reduce_mean(self._q,axis=0))
 
             self._merged = tf.summary.merge(
                 tf.get_collection(tf.GraphKeys.SUMMARIES,
@@ -275,7 +249,6 @@ class SimpleNet:
             )
 
         self._train_count = 0
-
         self._add_collection()
 
     @property
@@ -286,51 +259,28 @@ class SimpleNet:
         tf.add_to_collection(self._scope_name + '_x', self._x)
         tf.add_to_collection(self._scope_name + '_action', self._action)
 
-        for i in range(self.convnet_pars['n_approximators']):
-            if self.convnet_pars['net_type'] == 'features':
-                tf.add_to_collection(self._scope_name + '_features_' + str(i),
-                                     self._features[i])
-                tf.add_to_collection(self._scope_name + '_features2_' + str(i),
-                                     self._features2[i])
-            tf.add_to_collection(self._scope_name + '_q_' + str(i), self._q[i])
-            tf.add_to_collection(self._scope_name + '_q_acted_' + str(i),
-                                 self._q_acted[i])
+        if self.convnet_pars['net_type'] == 'features':
+            tf.add_to_collection(self._scope_name + '_features',
+                                 self._features)
+            tf.add_to_collection(self._scope_name + '_features2',
+                                 self._features2)
+        tf.add_to_collection(self._scope_name + '_q', self._q)
         tf.add_to_collection(self._scope_name + '_target_q', self._target_q)
         tf.add_to_collection(self._scope_name + '_merged', self._merged)
         tf.add_to_collection(self._scope_name + '_train_step', self._train_step)
-        tf.add_to_collection(self._scope_name + '_mask', self._mask)
 
     def _restore_collection(self, convnet_pars):
         self._x = tf.get_collection(self._scope_name + '_x')[0]
         self._action = tf.get_collection(self._scope_name + '_action')[0]
 
-        features = list()
-        features2 = list()
-        q = list()
-        q_acted = list()
-        for i in range(convnet_pars['n_approximators']):
-            if self.convnet_pars['net_type'] == 'features':
-                features.append(tf.get_collection(
-                    self._scope_name + '_features_' + str(i))[0])
-                features2.append(tf.get_collection(
-                    self._scope_name + '_features2_' + str(i))[0])
-            q.append(tf.get_collection(self._scope_name + '_q_' + str(i))[0])
-            q_acted.append(tf.get_collection(
-                self._scope_name + '_q_acted_' + str(i))[0])
         if self.convnet_pars['net_type'] == 'features':
-            self._features = features
-            self._features2 = features2
-        self._q = q
-        self._q_acted = q_acted
+            self._features= tf.get_collection(
+                self._scope_name + '_features')[0]
+            self.features2 = tf.get_collection(
+                self._scope_name + '_features2')[0]
+        self._q = tf.get_collection(self._scope_name + '_q')[0]
         self._target_q = tf.get_collection(self._scope_name + '_target_q')[0]
         self._merged = tf.get_collection(self._scope_name + '_merged')[0]
         self._train_step = tf.get_collection(
             self._scope_name + '_train_step')[0]
-
-        ##needs to be saved
-        self._mask = tf.placeholder(
-            tf.float32, shape=[None, convnet_pars['n_approximators']])
-        # self._mask = tf.get_collection( self._scope_name + '_mask')[0]
-
-
         self._train_count = 0

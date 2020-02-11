@@ -4,8 +4,8 @@ import gym
 class ValueIteration(object):
 
     def __init__(self, env, discount_factor, horizon=None):
-        if isinstance(env, gym.wrappers.TimeLimit):
-            env = env.env
+        # if isinstance(env, gym.wrappers.TimeLimit):
+        #     env = env.env
         self.env = env
         self.nS, self.nA = env.info.observation_space.n, env.info.action_space.n
         self.discount_factor = discount_factor

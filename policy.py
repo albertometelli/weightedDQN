@@ -1,5 +1,5 @@
 import numpy as np
-
+import tensorflow as tf
 from mushroom.policy.td_policy import TDPolicy
 from mushroom.utils.parameters import Parameter
 from scipy.stats import norm
@@ -264,6 +264,8 @@ class UCBPolicy(TDPolicy):
     def set_mu(self, mu):
         self.mu = mu
 
+
+
 class VPIPolicy(TDPolicy):
 
     def __init__(self, n_approximators, epsilon=None):
@@ -469,3 +471,76 @@ class WeightedGaussianPolicy(TDPolicy):
 
     def update_epsilon(self, state):
         self._epsilon(state)
+
+
+class DeterministicPolicy:
+    def __init__(self, input_shape, output_size, layers, bias=0):
+        #super(UCBPolicy, self).__init__()
+        self._evaluation = False
+        self.plotter = None
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        self._session = tf.Session(config=config)
+        self._name = '_pi'
+        with tf.variable_scope(None, default_name=self._name):
+            self._scope_name = tf.get_default_graph().get_name_scope() + '/'
+            with tf.variable_scope('State'):
+                self._x = tf.placeholder(tf.float32,
+                                         shape=[None] + list(
+                                             input_shape),
+                                         name='input')
+            layer = self._x
+            for l in layers:
+                layer = tf.layers.dense(
+                    layer, l,
+                    activation=tf.nn.relu,
+                    kernel_initializer=tf.glorot_uniform_initializer()
+                )
+            self._action = tf.layers.dense(
+                layer,
+                output_size,
+                kernel_initializer=tf.glorot_uniform_initializer(),
+                bias_initializer=tf.constant_initializer(bias),
+                name='q'
+            )
+
+
+            initializer = tf.variables_initializer(
+                tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                                  scope=self._scope_name))
+
+        self._session.run(initializer)
+
+    def predict(self, s):
+        return np.array([self._session.run(self._action, feed_dict={self._x: s})])
+
+    def update(self, s, approximator, delta=0.9):
+        actions = self.predict(s)
+
+
+    def set_plotter(self, plotter):
+        self.plotter = plotter
+
+    def draw_action(self, state):
+        a = self.predict(state)
+        if self.plotter is not None:
+            self.plotter(a)
+        return a
+
+    def set_epsilon(self, epsilon):
+        pass
+
+    def set_eval(self, eval):
+        pass
+
+    def set_idx(self, idx):
+        pass
+
+    def update_epsilon(self, state):
+        pass
+
+    def set_quantile_func(self, quantile_func):
+        pass
+
+    def set_mu(self, mu):
+        pass
