@@ -9,10 +9,6 @@ def generate_arms(gamma=0.95, horizon=np.inf):
         r=compute_rewards(nS, nA,rew)
         mu=compute_mu(nS)
         return FiniteMDP(p, r, mu, gamma, horizon)
-
-        
-
-         
     
 def compute_probabilities(nS, nA):
         p=np.zeros((nS, nA, nS))
